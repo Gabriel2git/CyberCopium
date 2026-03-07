@@ -11,12 +11,13 @@ import {
 } from '../fixtures/test-fixtures';
 
 test.describe('首页功能测试', () => {
-  
-  test('TC-HOME-001: 页面正常加载', async ({ page, baseUrl }) => {
-    // 访问首页
+  // 每个测试前都确保在首页
+  test.beforeEach(async ({ page, baseUrl }) => {
     await page.goto(baseUrl);
     await waitForPageLoad(page);
-    
+  });
+  
+  test('TC-HOME-001: 页面正常加载', async ({ page }) => {
     // 检查页面标题
     await expect(page).toHaveTitle(/赛博吸氧机/);
     
@@ -35,7 +36,8 @@ test.describe('首页功能测试', () => {
     const textarea = page.locator('textarea');
     await textarea.waitFor();
     
-    // 输入文本
+    // 清空后输入文本
+    await textarea.clear();
     const testText = '今天心情不好';
     await textarea.fill(testText);
     
@@ -47,6 +49,9 @@ test.describe('首页功能测试', () => {
   });
 
   test('TC-HOME-003: 示例按钮点击填充', async ({ page }) => {
+    // 清空输入框
+    await page.locator('textarea').clear();
+    
     // 点击第一个示例按钮
     await clickExampleButton(page, testExamples[0]);
     
@@ -61,9 +66,8 @@ test.describe('首页功能测试', () => {
   test('TC-HOME-004: 所有示例按钮都可点击', async ({ page }) => {
     // 测试前两个示例按钮
     for (let i = 0; i < Math.min(2, testExamples.length); i++) {
-      // 刷新页面清空输入
-      await page.reload();
-      await waitForPageLoad(page);
+      // 清空输入框
+      await page.locator('textarea').clear();
       
       // 点击示例按钮
       await clickExampleButton(page, testExamples[i]);
@@ -94,9 +98,9 @@ test.describe('首页功能测试', () => {
   });
 
   test('TC-HOME-006: 空输入时提交按钮禁用', async ({ page }) => {
-    // 刷新页面确保输入框为空
-    await page.reload();
-    await waitForPageLoad(page);
+    // 确保输入框为空
+    const textarea = page.locator('textarea');
+    await textarea.clear();
     
     // 验证提交按钮禁用
     const disabled = await isSubmitDisabled(page);
@@ -106,9 +110,8 @@ test.describe('首页功能测试', () => {
   });
 
   test('TC-HOME-007: 输入后提交按钮启用', async ({ page }) => {
-    // 刷新页面
-    await page.reload();
-    await waitForPageLoad(page);
+    // 清空输入框
+    await page.locator('textarea').clear();
     
     // 初始状态：禁用
     expect(await isSubmitDisabled(page)).toBe(true);

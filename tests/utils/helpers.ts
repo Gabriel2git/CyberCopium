@@ -51,10 +51,69 @@ export async function isSubmitDisabled(page: Page): Promise<boolean> {
 }
 
 /**
- * 等待跳转到结果页
+ * 等待跳转到结果页并等待结果加载完成
  */
 export async function waitForResultPage(page: Page): Promise<void> {
+  // 等待 URL 跳转
   await page.waitForURL('**/result**');
+  
+  // 等待加载状态消失（如果有 LoadingState 组件）
+  try {
+    await page.waitForSelector('.loading, .animate-pulse, [class*="loading"]', { 
+      state: 'detached',
+      timeout: 10000 
+    });
+  } catch {
+    // 如果没有加载状态，继续执行
+  }
+  
+  // 等待结果内容出现（等待任意一个结果卡片）
+  try {
+    await page.waitForSelector('[class*="border-black"]:has-text("状态命名"), [class*="bg-white"]:has-text("状态命名")', {
+      timeout: 15000
+    });
+  } catch {
+    // 备用方案：等待网格布局出现
+    await page.waitForSelector('.grid', { timeout: 15000 });
+  }
+}
+
+/**
+ * 等待结果卡片加载完成
+ */
+export async function waitForResultCards(page: Page): Promise<void> {
+  // 直接等待包含卡片标题的元素出现
+  const requiredCards = ['状态命名', '抽象嘴替', '荒诞动机', '最小行动'];
+  
+  for (const cardName of requiredCards) {
+    await page.waitForSelector(`text=${cardName}`, {
+      timeout: 20000
+    });
+  }
+}
+
+/**
+ * 等待精神贴纸加载完成
+ */
+export async function waitForSticker(page: Page): Promise<void> {
+  // 等待包含"精神贴纸"文本的元素
+  await page.waitForSelector('text=精神贴纸', {
+    timeout: 20000
+  });
+}
+
+/**
+ * 等待反馈按钮加载完成
+ */
+export async function waitForFeedbackButtons(page: Page): Promise<void> {
+  // 等待包含按钮文本的元素出现
+  const requiredButtons = ['命中了', '再来一口', '开始行动'];
+  
+  for (const buttonText of requiredButtons) {
+    await page.waitForSelector(`text=${buttonText}`, {
+      timeout: 20000
+    });
+  }
 }
 
 /**

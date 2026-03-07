@@ -3,6 +3,13 @@ import OpenAI from 'openai';
 import { SYSTEM_PROMPT, generateUserPrompt, FALLBACK_RESULT } from '@/lib/prompt';
 import { GenerationResult } from '@/types';
 
+// 配置阿里云百炼客户端
+const client = new OpenAI({
+  apiKey: process.env.DASHSCOPE_API_KEY,
+  baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  timeout: 10000, // 10 秒超时
+});
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -19,13 +26,6 @@ export async function POST(request: NextRequest) {
       console.warn('DASHSCOPE_API_KEY 未配置，使用 fallback 数据');
       return NextResponse.json({ result: FALLBACK_RESULT });
     }
-
-    // 配置阿里云百炼客户端
-    const client = new OpenAI({
-      apiKey: process.env.DASHSCOPE_API_KEY,
-      baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-      timeout: 10000, // 10 秒超时
-    });
 
     const completion = await client.chat.completions.create({
       model: 'qwen-flash',

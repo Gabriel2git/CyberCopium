@@ -3,21 +3,26 @@ import {
   fillInput, 
   clickSubmit,
   waitForResultPage,
-  verifyResultCards,
+  waitForResultCards,
+  waitForSticker,
+  waitForFeedbackButtons,
   goBackToHome,
   validInputs
 } from '../fixtures/test-fixtures';
 
 test.describe('结果页功能测试', () => {
-  
-  test('TC-RESULT-001: 从首页跳转到结果页', async ({ page }) => {
-    // 输入并提交
+  // 每个测试前都确保在结果页
+  test.beforeEach(async ({ page, baseUrl }) => {
+    // 先访问首页
+    await page.goto(baseUrl);
+    
+    // 输入并提交，跳转到结果页
     await fillInput(page, validInputs[0]);
     await clickSubmit(page);
-    
-    // 等待跳转
     await waitForResultPage(page);
-    
+  });
+  
+  test('TC-RESULT-001: 从首页跳转到结果页', async ({ page }) => {
     // 验证 URL
     expect(page.url()).toContain('/result');
     
@@ -25,11 +30,6 @@ test.describe('结果页功能测试', () => {
   });
 
   test('TC-RESULT-002: 结果页标题正确', async ({ page }) => {
-    // 跳转到结果页
-    await fillInput(page, validInputs[0]);
-    await clickSubmit(page);
-    await waitForResultPage(page);
-    
     // 检查页面标题
     await expect(page).toHaveTitle(/赛博吸氧机/);
     
@@ -37,10 +37,8 @@ test.describe('结果页功能测试', () => {
   });
 
   test('TC-RESULT-003: 五张结果卡片显示', async ({ page }) => {
-    // 跳转到结果页
-    await fillInput(page, validInputs[0]);
-    await clickSubmit(page);
-    await waitForResultPage(page);
+    // 等待结果卡片加载
+    await waitForResultCards(page);
     
     // 检查所有卡片
     const cards = [
@@ -52,34 +50,30 @@ test.describe('结果页功能测试', () => {
     
     for (const card of cards) {
       const cardElement = page.getByText(card.name);
-      await expect(cardElement).toBeVisible();
+      await expect(cardElement).toBeVisible({ timeout: 5000 });
     }
     
     console.log('✅ TC-RESULT-003 通过：五张结果卡片显示');
   });
 
   test('TC-RESULT-004: 精神贴纸显示', async ({ page }) => {
-    // 跳转到结果页
-    await fillInput(page, validInputs[0]);
-    await clickSubmit(page);
-    await waitForResultPage(page);
+    // 等待精神贴纸加载
+    await waitForSticker(page);
     
     // 检查精神贴纸
     const stickerSection = page.getByText('你的精神贴纸');
-    await expect(stickerSection).toBeVisible();
+    await expect(stickerSection).toBeVisible({ timeout: 5000 });
     
     // 检查贴纸卡片
     const stickerCard = page.locator('.bg-white').filter({ hasText: '赛博吸氧机' });
-    await expect(stickerCard).toBeVisible();
+    await expect(stickerCard).toBeVisible({ timeout: 5000 });
     
     console.log('✅ TC-RESULT-004 通过：精神贴纸显示');
   });
 
   test('TC-RESULT-005: 反馈按钮功能正常', async ({ page }) => {
-    // 跳转到结果页
-    await fillInput(page, validInputs[0]);
-    await clickSubmit(page);
-    await waitForResultPage(page);
+    // 等待反馈按钮加载
+    await waitForFeedbackButtons(page);
     
     // 检查反馈按钮
     const feedbackButtons = [
@@ -89,18 +83,13 @@ test.describe('结果页功能测试', () => {
     ];
     
     for (const button of feedbackButtons) {
-      await expect(button).toBeVisible();
+      await expect(button).toBeVisible({ timeout: 5000 });
     }
     
     console.log('✅ TC-RESULT-005 通过：反馈按钮功能正常');
   });
 
   test('TC-RESULT-006: 返回首页功能', async ({ page }) => {
-    // 跳转到结果页
-    await fillInput(page, validInputs[0]);
-    await clickSubmit(page);
-    await waitForResultPage(page);
-    
     // 返回首页
     await goBackToHome(page);
     
@@ -116,11 +105,6 @@ test.describe('结果页功能测试', () => {
   });
 
   test('TC-RESULT-007: 结果页手绘风格正确', async ({ page }) => {
-    // 跳转到结果页
-    await fillInput(page, validInputs[0]);
-    await clickSubmit(page);
-    await waitForResultPage(page);
-    
     // 检查背景颜色 (米白色)
     const body = page.locator('body');
     const backgroundColor = await body.evaluate((el) => 
