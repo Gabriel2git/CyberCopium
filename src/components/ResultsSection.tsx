@@ -53,7 +53,7 @@ interface ResultsSectionProps {
 
 export function ResultsSection({ result }: ResultsSectionProps) {
   return (
-    <div className="flex flex-col gap-4 mb-8 w-full max-w-[40%] mx-auto">
+    <div className="flex flex-col gap-4 mb-8 w-full max-w-[90%] sm:max-w-[70%] lg:max-w-[40%] mx-auto">
       <ResultCard
         title="状态命名"
         content={result.status_label}
