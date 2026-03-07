@@ -54,9 +54,35 @@ export default function ResultPage() {
     };
   }, [router]);
 
-  const handleRegenerate = () => {
-    localStorage.removeItem('copium_input');
-    router.push('/');
+  const handleRegenerate = async () => {
+    const savedInput = localStorage.getItem('copium_input');
+    if (!savedInput) {
+      router.push('/');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input: savedInput }),
+      });
+
+      if (!response.ok) {
+        throw new Error('生成失败');
+      }
+
+      const data = await response.json();
+      setResult(data.result);
+    } catch (err) {
+      setError('生成失败，请稍后再试');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleLiked = () => {
@@ -183,13 +209,13 @@ export default function ResultPage() {
               onActionTaken={handleActionTaken}
             />
 
-            <div className="text-center mt-8">
+            <div className="text-center mt-8 mb-12">
               <button
                 onClick={handleBackToHome}
                 className="text-gray-700 font-body hover:text-black underline underline-offset-4 text-lg relative group"
               >
                 <span className="relative">
-                  ← 返回首页
+                  ← 再来一口
                   <svg className="absolute -bottom-1 left-0 w-full opacity-0 group-hover:opacity-100 transition-opacity" height="2" viewBox="0 0 100 2">
                     <path d="M0,1 L100,1" stroke="black" strokeWidth="1.5" fill="none" strokeDasharray="2,2" />
                   </svg>

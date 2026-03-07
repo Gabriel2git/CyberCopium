@@ -25,13 +25,35 @@ export default function ResultCard({ title, content, icon, rotate = 'rotate(-0.3
   );
 }
 
+interface ActionCardProps {
+  content: string;
+}
+
+function ActionCard({ content }: ActionCardProps) {
+  return (
+    <div 
+      className="bg-black border-2 border-black rounded-none p-6 shadow-hard hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all relative cursor-pointer group"
+      style={{ transform: 'rotate(0.4deg)' }}
+    >
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-white/80 text-sm">☆</span>
+        <h3 className="text-sm font-title font-bold text-white/80">最小行动 ↓</h3>
+      </div>
+      <div className="flex items-center justify-between">
+        <p className="text-white leading-relaxed font-body text-lg flex-1">{content}</p>
+        <span className="text-white text-2xl ml-4 group-hover:translate-x-1 transition-transform">→</span>
+      </div>
+    </div>
+  );
+}
+
 interface ResultsSectionProps {
   result: GenerationResult;
 }
 
 export function ResultsSection({ result }: ResultsSectionProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+    <div className="flex flex-col gap-4 mb-8 w-full max-w-[40%] mx-auto">
       <ResultCard
         title="状态命名"
         content={result.status_label}
@@ -50,11 +72,8 @@ export function ResultsSection({ result }: ResultsSectionProps) {
         icon="🎭"
         rotate="rotate(-0.2deg)"
       />
-      <ResultCard
-        title="最小行动"
+      <ActionCard
         content={result.micro_action}
-        icon="⚡"
-        rotate="rotate(0.4deg)"
       />
     </div>
   );

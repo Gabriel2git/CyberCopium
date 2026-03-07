@@ -7,7 +7,7 @@ import { GenerationResult } from '@/types';
 const client = new OpenAI({
   apiKey: process.env.DASHSCOPE_API_KEY,
   baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-  timeout: 30000, // 30 秒超时
+  timeout: 10000, // 10 秒超时
 });
 
 export async function POST(request: NextRequest) {
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     const completion = await client.chat.completions.create({
-      model: 'qwen-plus',
+      model: 'qwen-flash',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: generateUserPrompt(input) },

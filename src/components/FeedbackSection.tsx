@@ -21,7 +21,7 @@ export default function FeedbackSection({ onLiked, onRegenerate, onActionTaken }
           onClick={onRegenerate}
           className="px-8 py-3 bg-white text-blue-600 font-handwriting font-bold text-lg border-2 border-black rounded-none shadow-hard hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
         >
-          🔄 再来一口
+          ⟳ 换个味道
         </button>
         <button
           onClick={onActionTaken}
