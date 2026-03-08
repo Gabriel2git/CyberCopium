@@ -21,6 +21,14 @@ export type RiskLevel = 'low' | 'medium' | 'high';
 // 行动时间窗口
 export type ActionWindow = '30s' | '3min' | '10min';
 
+// 风格模式枚举（固定值，用于控制和埋点分析）
+export type StyleMode =
+  | '温和嘴替'
+  | '体面发疯'
+  | '高雅崩溃'
+  | '荒诞自救'
+  | '低电量维稳';
+
 // 第一层：Analyzer 输出的战术板
 export interface AnalysisResult {
   scene: Scene;
@@ -29,7 +37,8 @@ export interface AnalysisResult {
   primary_block: PrimaryBlock;
   risk_level: RiskLevel;
   action_window: ActionWindow;
-  style_mode: string; // 4-6字荒诞策略标签
+  style_mode: StyleMode; // 固定枚举值，用于控制生成
+  style_hint?: string;   // 可选，用于前台展示的小标签
   analysis_summary: string; // 不超过24字
 }
 
