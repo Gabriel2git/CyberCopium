@@ -234,8 +234,4 @@ export const HIGH_RISK_FALLBACK_RESULT: GenerationResult = {
   status_tag: '疲惫/低启动',
 };
 
-// 心理援助热线信息
-export const CRISIS_RESOURCES = {
-  hotline: '12356',
-  message: '如果你正在经历严重困扰，可以拨打心理援助热线 12356（没4，没事儿），专业的心理咨询师 24 小时在线陪伴你。',
-};
+

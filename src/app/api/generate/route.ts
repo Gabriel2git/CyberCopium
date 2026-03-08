@@ -8,7 +8,6 @@ import {
   FALLBACK_ANALYSIS,
   FALLBACK_RESULT,
   HIGH_RISK_FALLBACK_RESULT,
-  CRISIS_RESOURCES,
 } from '@/lib/prompt';
 import { AnalysisResult, GenerationResult } from '@/types';
 
@@ -117,17 +116,10 @@ export async function POST(request: NextRequest) {
       result.tone_level = analysis.tone_level;
       result.status_tag = analysis.status_tag;
 
-      // 高危场景：添加专业资源提示
-      const response: any = {
+      return NextResponse.json({
         result,
         analysis, // 可选：返回战术板供调试
-      };
-
-      if (analysis.risk_level === 'high') {
-        response.crisisResources = CRISIS_RESOURCES;
-      }
-
-      return NextResponse.json(response);
+      });
 
     } catch (composerError: any) {
       console.error('Composer 失败:', composerError);
@@ -137,17 +129,11 @@ export async function POST(request: NextRequest) {
         ? HIGH_RISK_FALLBACK_RESULT 
         : FALLBACK_RESULT;
       
-      const response: any = {
+      return NextResponse.json({
         result: fallbackResult,
         analysis,
         warning: '生成失败，已切换至备用方案',
-      };
-
-      if (analysis.risk_level === 'high') {
-        response.crisisResources = CRISIS_RESOURCES;
-      }
-
-      return NextResponse.json(response);
+      });
     }
 
   } catch (error: any) {
