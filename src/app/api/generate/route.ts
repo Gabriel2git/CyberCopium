@@ -7,6 +7,8 @@ import {
   generateComposerUserPrompt,
   FALLBACK_ANALYSIS,
   FALLBACK_RESULT,
+  HIGH_RISK_FALLBACK_RESULT,
+  CRISIS_RESOURCES,
 } from '@/lib/prompt';
 import { AnalysisResult, GenerationResult } from '@/types';
 
@@ -115,20 +117,37 @@ export async function POST(request: NextRequest) {
       result.tone_level = analysis.tone_level;
       result.status_tag = analysis.status_tag;
 
-      return NextResponse.json({ 
+      // 高危场景：添加专业资源提示
+      const response: any = {
         result,
-        analysis // 可选：返回战术板供调试
-      });
+        analysis, // 可选：返回战术板供调试
+      };
+
+      if (analysis.risk_level === 'high') {
+        response.crisisResources = CRISIS_RESOURCES;
+      }
+
+      return NextResponse.json(response);
 
     } catch (composerError: any) {
       console.error('Composer 失败:', composerError);
       
-      // Composer 失败时返回 fallback 数据
-      return NextResponse.json({ 
-        result: FALLBACK_RESULT,
+      // Composer 失败时，高危场景使用专用 fallback
+      const fallbackResult = analysis.risk_level === 'high' 
+        ? HIGH_RISK_FALLBACK_RESULT 
+        : FALLBACK_RESULT;
+      
+      const response: any = {
+        result: fallbackResult,
         analysis,
-        warning: '生成失败，已切换至备用方案'
-      });
+        warning: '生成失败，已切换至备用方案',
+      };
+
+      if (analysis.risk_level === 'high') {
+        response.crisisResources = CRISIS_RESOURCES;
+      }
+
+      return NextResponse.json(response);
     }
 
   } catch (error: any) {
