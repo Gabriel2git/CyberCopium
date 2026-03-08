@@ -38,11 +38,10 @@ export default function InputSection({ onSubmit, isLoading }: InputSectionProps)
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="说说你的困境吧...（比如：又加班到凌晨了 / 论文被拒了 / 存款清零了）"
-            className="w-full px-6 py-4 text-lg border-2 border-black rounded-none shadow-hard focus:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] focus:outline-none resize-none bg-white text-gray-900 transition-all font-body text-xl min-h-[140px] card-rotate-slight"
+            className="w-full px-6 py-4 text-lg border-2 border-black rounded-none shadow-hard focus:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] focus:outline-none resize-none bg-white text-gray-900 transition-all font-body text-xl min-h-[140px] caret-black"
             rows={3}
             maxLength={200}
             disabled={isLoading}
-            style={{ transform: 'rotate(-0.5deg)' }}
           />
           <div className="absolute bottom-3 right-3 text-sm text-gray-600 font-body">
             {input.length}/200
