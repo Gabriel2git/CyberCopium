@@ -49,7 +49,7 @@ export default function Home() {
         <div className="absolute bottom-1/4 left-20 text-2xl">✦</div>
       </div>
       
-      <div className="container mx-auto px-4 py-12 relative z-10">
+      <div className="container mx-auto px-4 py-12 relative z-10 flex flex-col min-h-[calc(100vh-48px)]">
         <Hero />
         
         {isLoading ? (
@@ -58,8 +58,11 @@ export default function Home() {
           <InputSection onSubmit={handleSubmit} />
         )}
         
-        <Footer />
+        <div className="flex-grow" />
       </div>
+      
+      {/* 固定在底部的 Footer */}
+      <Footer />
     </main>
   );
 }
