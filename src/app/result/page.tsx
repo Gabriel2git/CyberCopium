@@ -8,12 +8,14 @@ import StickerCard from '@/components/StickerCard';
 import FeedbackSection from '@/components/FeedbackSection';
 import LoadingState from '@/components/LoadingState';
 import Footer from '@/components/Footer';
-import { GenerationResult } from '@/types';
+import { GenerationResult, AnalysisResult } from '@/types';
+import { captureResultImpression, captureRegenerateClick } from '@/lib/posthog';
 
 export default function ResultPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [result, setResult] = useState<GenerationResult | null>(null);
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -38,6 +40,12 @@ export default function ResultPage() {
 
         const data = await response.json();
         setResult(data.result);
+        setAnalysis(data.analysis);
+        
+        // 埋点：结果展示
+        if (data.analysis) {
+          captureResultImpression(data.analysis);
+        }
       } catch (err) {
         setError('生成失败，请稍后再试');
         console.error(err);
@@ -61,6 +69,11 @@ export default function ResultPage() {
       return;
     }
 
+    // 埋点：重新生成
+    if (analysis) {
+      captureRegenerateClick(analysis);
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -77,6 +90,12 @@ export default function ResultPage() {
 
       const data = await response.json();
       setResult(data.result);
+      setAnalysis(data.analysis);
+      
+      // 埋点：新结果展示
+      if (data.analysis) {
+        captureResultImpression(data.analysis);
+      }
     } catch (err) {
       setError('生成失败，请稍后再试');
       console.error(err);
@@ -192,7 +211,7 @@ export default function ResultPage() {
           </div>
         )}
         
-        {result && (
+        {result && analysis && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <ResultsSection result={result} />
             
@@ -200,13 +219,14 @@ export default function ResultPage() {
               <h2 className="text-2xl font-handwriting font-bold text-center mb-6 text-gray-800">
                 ✨ 你的精神贴纸
               </h2>
-              <StickerCard text={result.sticker_text} />
+              <StickerCard text={result.sticker_text} analysis={analysis} />
             </div>
             
             <FeedbackSection 
               onLiked={handleLiked}
               onRegenerate={handleRegenerate}
               onActionTaken={handleActionTaken}
+              analysis={analysis}
             />
 
             <div className="text-center mt-8 mb-12">

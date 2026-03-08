@@ -1,23 +1,26 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+'use client';
+
+import { useEffect } from 'react';
 import { Analytics } from "@vercel/analytics/next";
+import { initPostHog, capturePageView } from "@/lib/posthog";
 import "./globals.css";
-
-const inter = Inter({ subsets: ["latin"] });
-
-export const metadata: Metadata = {
-  title: "赛博吸氧机 | Cyber Copium",
-  description: "现实太窒息？来吸一口纯度 100% 的赛博盲目乐观。",
-};
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  useEffect(() => {
+    // 初始化 PostHog
+    initPostHog();
+    
+    // 捕获页面浏览事件
+    capturePageView();
+  }, []);
+
   return (
     <html lang="zh-CN">
-      <body className={inter.className}>
+      <body className="font-sans">
         {children}
         <Analytics />
       </body>

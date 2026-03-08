@@ -18,7 +18,16 @@ const client = new OpenAI({
   timeout: 15000, // 15 秒超时（两次调用）
 });
 
+// 简单的服务端埋点函数
+const captureServerEvent = (eventName: string, properties?: Record<string, any>) => {
+  // 这里可以接入服务端埋点系统，如 PostHog 服务端 SDK
+  // 目前先打印到控制台，后续可以接入正式埋点系统
+  console.log(`[Server Event] ${eventName}`, properties);
+};
+
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const body = await request.json();
     const { input } = body;
@@ -37,8 +46,10 @@ export async function POST(request: NextRequest) {
 
     // ========== 第一层：Generation Control Layer (Analyzer) ==========
     let analysis: AnalysisResult;
+    let originalToneLevel: string = 'L2';
     
     try {
+      const analysisStartTime = Date.now();
       const analysisCompletion = await client.chat.completions.create({
         model: 'qwen-flash',
         messages: [
@@ -49,6 +60,7 @@ export async function POST(request: NextRequest) {
         max_tokens: 300,
         response_format: { type: 'json_object' },
       });
+      const analysisLatency = Date.now() - analysisStartTime;
 
       const analysisContent = analysisCompletion.choices[0]?.message?.content;
       
@@ -65,9 +77,21 @@ export async function POST(request: NextRequest) {
         throw new Error('Analyzer 返回字段不完整');
       }
 
+      // 记录原始 tone_level
+      originalToneLevel = analysis.tone_level;
+
       // 风控：高风险强制降级为 L1
       if (analysis.risk_level === 'high' && analysis.tone_level !== 'L1') {
         console.log('检测到高风险内容，强制降级为 L1');
+        
+        // 埋点：安全降级触发
+        captureServerEvent('safety_downgrade_triggered', {
+          original_tone_level: originalToneLevel,
+          final_tone_level: 'L1',
+          risk_level: analysis.risk_level,
+          trigger_reason: 'high_risk_content_detected',
+        });
+        
         analysis.tone_level = 'L1';
       }
 
@@ -75,10 +99,20 @@ export async function POST(request: NextRequest) {
       console.error('Analyzer 失败:', analysisError);
       // Analyzer 失败时使用 fallback 分析
       analysis = FALLBACK_ANALYSIS;
+      
+      // 埋点：生成错误
+      captureServerEvent('generate_error', {
+        error_type: 'analyzer_failed',
+        latency_ms: Date.now() - startTime,
+        prompt_version: 'v2',
+        model_name: 'qwen-flash',
+        fallback_used: true,
+      });
     }
 
     // ========== 第二层：Presentation Layer (Composer) ==========
     try {
+      const composerStartTime = Date.now();
       const composerCompletion = await client.chat.completions.create({
         model: 'qwen-flash',
         messages: [
@@ -97,6 +131,8 @@ export async function POST(request: NextRequest) {
         max_tokens: 500,
         response_format: { type: 'json_object' },
       });
+      const composerLatency = Date.now() - composerStartTime;
+      const totalLatency = Date.now() - startTime;
 
       const composerContent = composerCompletion.choices[0]?.message?.content;
       
@@ -116,6 +152,20 @@ export async function POST(request: NextRequest) {
       result.tone_level = analysis.tone_level;
       result.status_tag = analysis.status_tag;
 
+      // 埋点：生成成功
+      captureServerEvent('generate_success', {
+        latency_ms: totalLatency,
+        model_name: 'qwen-flash',
+        prompt_version: 'v2',
+        scene: analysis.scene,
+        status_tag: analysis.status_tag,
+        tone_level: analysis.tone_level,
+        primary_block: analysis.primary_block,
+        style_mode: analysis.style_mode,
+        risk_level: analysis.risk_level,
+        action_window: analysis.action_window,
+      });
+
       return NextResponse.json({
         result,
         analysis, // 可选：返回战术板供调试
@@ -123,6 +173,15 @@ export async function POST(request: NextRequest) {
 
     } catch (composerError: any) {
       console.error('Composer 失败:', composerError);
+      
+      // 埋点：生成错误
+      captureServerEvent('generate_error', {
+        error_type: 'composer_failed',
+        latency_ms: Date.now() - startTime,
+        prompt_version: 'v2',
+        model_name: 'qwen-flash',
+        fallback_used: true,
+      });
       
       // Composer 失败时，高危场景使用专用 fallback
       const fallbackResult = analysis.risk_level === 'high' 
@@ -138,6 +197,15 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('生成失败:', error);
+    
+    // 埋点：生成错误
+    captureServerEvent('generate_error', {
+      error_type: error.code === 'ECONNABORTED' || error.message?.includes('timeout') ? 'timeout' : 'unknown',
+      latency_ms: Date.now() - startTime,
+      prompt_version: 'v2',
+      model_name: 'qwen-flash',
+      fallback_used: true,
+    });
     
     // 处理超时错误
     if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {

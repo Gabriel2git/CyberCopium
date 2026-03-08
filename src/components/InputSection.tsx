@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { captureSamplePromptClick, captureGenerateSubmit } from '@/lib/posthog';
 
 interface InputSectionProps {
   onSubmit: (text: string) => void;
@@ -15,16 +16,29 @@ const EXAMPLES = [
 
 export default function InputSection({ onSubmit, isLoading }: InputSectionProps) {
   const [input, setInput] = useState('');
+  const [inputSource, setInputSource] = useState<'manual' | 'sample'>('manual');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !isLoading) {
+      // 埋点：生成提交
+      captureGenerateSubmit(input.length, inputSource);
       onSubmit(input.trim());
     }
   };
 
   const handleExampleClick = (example: string) => {
     setInput(example);
+    setInputSource('sample');
+    // 埋点：点击示例
+    captureSamplePromptClick(example, 'default');
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    if (inputSource === 'sample') {
+      setInputSource('manual');
+    }
   };
 
   return (
@@ -36,7 +50,7 @@ export default function InputSection({ onSubmit, isLoading }: InputSectionProps)
         <div className="relative">
           <textarea
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
             placeholder="说说你的困境吧...（比如：又加班到凌晨了 / 论文被拒了 / 存款清零了）"
             className="w-full px-6 py-4 text-lg border-2 border-black rounded-none shadow-hard focus:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] focus:outline-none resize-none bg-white text-gray-900 transition-all font-body text-xl min-h-[140px] caret-black"
             rows={3}
