@@ -2,19 +2,32 @@ import posthog from 'posthog-js';
 
 // PostHog 配置
 const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY || '';
-const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://app.posthog.com';
+const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';
 
 // 初始化 PostHog
 export const initPostHog = () => {
   if (typeof window !== 'undefined' && POSTHOG_KEY) {
     posthog.init(POSTHOG_KEY, {
       api_host: POSTHOG_HOST,
+      defaults: '2026-01-30',
+      person_profiles: 'identified_only',
+      // 禁用 Session Replay 以避免被广告拦截器阻止
+      disable_session_recording: true,
+      // 开发环境启用调试模式
+      debug: process.env.NODE_ENV === 'development',
       loaded: (posthog) => {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('PostHog loaded');
-        }
+        console.log('✅ PostHog 初始化成功', {
+          key: POSTHOG_KEY,
+          host: POSTHOG_HOST,
+        });
       },
       capture_pageview: false, // 我们手动捕获
+    });
+  } else {
+    console.warn('⚠️ PostHog 未初始化', { 
+      hasKey: !!POSTHOG_KEY, 
+      hasHost: !!POSTHOG_HOST,
+      host: POSTHOG_HOST 
     });
   }
 };
@@ -25,7 +38,11 @@ export const getPostHog = () => posthog;
 // 通用事件捕获函数
 export const captureEvent = (eventName: string, properties?: Record<string, any>) => {
   if (typeof window !== 'undefined' && posthog) {
+    console.log('📤 准备发送事件:', eventName, properties);
     posthog.capture(eventName, properties);
+    console.log('✅ 事件已发送:', eventName);
+  } else {
+    console.warn('⚠️ PostHog 未就绪，无法发送事件:', eventName);
   }
 };
 
