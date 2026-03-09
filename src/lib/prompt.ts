@@ -104,6 +104,14 @@ export const COMPOSER_PROMPT = `# Role
 - absurd_motivation: ≤40 字
 - micro_action: ≤30 字
 
+## 2.5 贴纸文案特别约束（关键！）
+**sticker_text 必须遵循以下规则**：
+- 必须使用发疯文学/抽象话/谐音梗/网络热梗
+- 必须荒诞、离谱、有梗、适合做成表情包
+- 禁止使用正常、平淡、无聊的表达
+- 可以参考：禁止蕉绿、汗流浃背了吧、发疯冠军、情绪稳定、已黑化、在疯了别惹我、精神状态良好
+- 字数控制在 5-10 字，越离谱越好
+
 ## 3. 语气约束（关键！必须严格遵守）
 根据 {tone_level} 和 {risk_level} 控制内容：
 
@@ -181,7 +189,7 @@ export const COMPOSER_PROMPT = `# Role
   "voice_line": "一句有网感的抽象嘴替，作用是把用户的卡点说出来，并适度把压力外化，避免纯自责",
   "absurd_motivation": "荒诞动机（用极其离谱但自洽的逻辑，把当前困境转化为采取下一步行动的理由）",
   "micro_action": "最小行动（配合 {action_window}，给出一个无需动脑的物理微动作，优先选择当下环境内可完成的）",
-  "sticker_text": "精神贴纸文案（5-10字，极简有力，适合印成贴纸，如'合法发疯'）",
+  "sticker_text": "精神贴纸文案（5-10 字，必须使用发疯文学/抽象话/谐音梗，如：'禁止蕉绿'、'尊嘟假嘟'、'泰酷辣'、'汗流浃背了吧'、'我真的会谢'、'摆烂之王'、'发疯冠军'、'已黑化'、'在疯了别惹我'、'精神状态良好'）",
   "tone_level": "{tone_level}",
   "status_tag": "{status_tag}"
 }`;
@@ -215,7 +223,7 @@ export const FALLBACK_ANALYSIS: AnalysisResult = {
 export const FALLBACK_RESULT: GenerationResult = {
   status_label: '暂时卡住状态',
   voice_line: '有时候，卡住也是一种前进的方式',
-  sticker_text: '我在充电，请稍后再试',
+  sticker_text: '禁止蕉绿',
   absurd_motivation: '毕竟连手机都需要充电，你凭什么要求自己永远满电运行？',
   micro_action: '深呼吸三次，然后喝一杯水',
   tone_level: 'L1',
@@ -227,7 +235,7 @@ export const FALLBACK_RESULT: GenerationResult = {
 export const HIGH_RISK_FALLBACK_RESULT: GenerationResult = {
   status_label: '先把自己放回现实里',
   voice_line: '现在最重要的不是想明白一切，而是先让自己稳一点',
-  sticker_text: '先稳住一下',
+  sticker_text: '情绪稳定',  // 反讽式发疯
   absurd_motivation: '今天不用解决人生，只需要先把这一刻安全地过完',
   micro_action: '把双脚踩实地面，慢慢喝几口水，然后联系一个信任的人',
   tone_level: 'L1',
