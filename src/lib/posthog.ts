@@ -73,6 +73,41 @@ export const captureGenerateSubmit = (inputLength: number, inputSource: 'manual'
   });
 };
 
+// ========== 生成链路事件 ==========
+
+export const captureGenerateSuccess = (analysis: {
+  scene: string;
+  status_tag: string;
+  tone_level: string;
+  style_mode: string;
+  risk_level: string;
+  primary_block: string;
+  action_window: string;
+}, latencyMs: number) => {
+  captureEvent('generate_success', {
+    latency_ms: latencyMs,
+    model_name: 'qwen-flash',
+    prompt_version: 'v2',
+    scene: analysis.scene,
+    status_tag: analysis.status_tag,
+    tone_level: analysis.tone_level,
+    style_mode: analysis.style_mode,
+    risk_level: analysis.risk_level,
+    primary_block: analysis.primary_block,
+    action_window: analysis.action_window,
+  });
+};
+
+export const captureGenerateError = (errorType: string, latencyMs: number) => {
+  captureEvent('generate_error', {
+    error_type: errorType,
+    latency_ms: latencyMs,
+    prompt_version: 'v2',
+    model_name: 'qwen-flash',
+    fallback_used: true,
+  });
+};
+
 // ========== 结果消费事件 ==========
 
 export const captureResultImpression = (analysis: {

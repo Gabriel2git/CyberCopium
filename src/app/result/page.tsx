@@ -9,7 +9,7 @@ import FeedbackSection from '@/components/FeedbackSection';
 import LoadingState from '@/components/LoadingState';
 import Footer from '@/components/Footer';
 import { GenerationResult, AnalysisResult } from '@/types';
-import { captureResultImpression, captureRegenerateClick } from '@/lib/posthog';
+import { captureResultImpression, captureRegenerateClick, captureGenerateSuccess, captureGenerateError } from '@/lib/posthog';
 
 export default function ResultPage() {
   const router = useRouter();
@@ -27,6 +27,8 @@ export default function ResultPage() {
     }
 
     const generateResult = async () => {
+      const startTime = Date.now(); // 添加开始时间
+      
       try {
         const response = await fetch('/api/generate', {
           method: 'POST',
@@ -42,11 +44,14 @@ export default function ResultPage() {
         setResult(data.result);
         setAnalysis(data.analysis);
         
-        // 埋点：结果展示
+        // 埋点：生成成功
         if (data.analysis) {
+          captureGenerateSuccess(data.analysis, Date.now() - startTime);
           captureResultImpression(data.analysis);
         }
       } catch (err) {
+        // 埋点：生成失败
+        captureGenerateError('frontend_fetch_error', Date.now() - startTime);
         setError('生成失败，请稍后再试');
         console.error(err);
       } finally {
