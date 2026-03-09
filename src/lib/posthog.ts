@@ -10,7 +10,8 @@ export const initPostHog = () => {
     posthog.init(POSTHOG_KEY, {
       api_host: POSTHOG_HOST,
       defaults: '2026-01-30',
-      person_profiles: 'identified_only',
+      // 为所有用户（包括匿名）创建画像，这样 DAU/WAU 才能正常工作
+      person_profiles: 'always',
       // 禁用 Session Replay 以避免被广告拦截器阻止
       disable_session_recording: true,
       // 开发环境启用调试模式
