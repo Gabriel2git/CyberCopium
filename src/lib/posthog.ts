@@ -12,8 +12,14 @@ export const initPostHog = () => {
       defaults: '2026-01-30',
       // 为所有用户（包括匿名）创建画像，这样 DAU/WAU 才能正常工作
       person_profiles: 'always',
-      // 禁用 Session Replay 以避免被广告拦截器阻止
-      disable_session_recording: true,
+      // 启用 Session Replay 录制用户会话
+      disable_session_recording: false,
+      session_recording: {
+        maskAllInputs: false,  // 不屏蔽输入框内容
+        maskInputOptions: {
+          password: true,      // 但密码仍然屏蔽
+        },
+      },
       // 开发环境启用调试模式
       debug: process.env.NODE_ENV === 'development',
       loaded: (posthog) => {
