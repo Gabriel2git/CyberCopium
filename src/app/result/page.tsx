@@ -8,8 +8,21 @@ import StickerCard from '@/components/StickerCard';
 import FeedbackSection from '@/components/FeedbackSection';
 import LoadingState from '@/components/LoadingState';
 import Footer from '@/components/Footer';
-import { GenerationResult, AnalysisResult } from '@/types';
+import SketchBackground from '@/components/SketchBackground';
+import { GenerationResult, AnalysisResult, GenerateApiResponse } from '@/types';
 import { captureResultImpression, captureRegenerateClick, captureGenerateSuccess, captureGenerateError } from '@/lib/posthog';
+
+const DEFAULT_ANALYSIS: AnalysisResult = {
+  scene: 'daily_life',
+  status_tag: '疲惫/低启动',
+  tone_level: 'L1',
+  primary_block: 'low_energy',
+  risk_level: 'low',
+  action_window: '3min',
+  style_mode: '低电量维稳',
+  style_hint: '备用模式',
+  analysis_summary: '系统使用了备用分析策略',
+};
 
 export default function ResultPage() {
   const router = useRouter();
@@ -17,6 +30,34 @@ export default function ResultPage() {
   const [result, setResult] = useState<GenerationResult | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+
+  const applyApiPayload = (
+    payload: GenerateApiResponse,
+    latencyMs: number,
+    treatAsInitialLoad = false
+  ) => {
+    const resolvedResult = payload.result;
+    const resolvedAnalysis = payload.analysis ?? DEFAULT_ANALYSIS;
+
+    if (!resolvedResult) {
+      throw new Error(payload.error || '生成失败');
+    }
+
+    setResult(resolvedResult);
+    setAnalysis(resolvedAnalysis);
+    setWarning(payload.warning || null);
+
+    if (payload.ok) {
+      captureGenerateSuccess(resolvedAnalysis, latencyMs);
+    } else {
+      captureGenerateError(payload.code, latencyMs);
+    }
+
+    if (treatAsInitialLoad || !payload.ok) {
+      captureResultImpression(resolvedAnalysis);
+    }
+  };
 
   useEffect(() => {
     const savedInput = localStorage.getItem('copium_input');
@@ -36,23 +77,13 @@ export default function ResultPage() {
           body: JSON.stringify({ input: savedInput }),
         });
 
-        if (!response.ok) {
-          throw new Error('生成失败');
-        }
-
-        const data = await response.json();
-        setResult(data.result);
-        setAnalysis(data.analysis);
-        
-        // 埋点：生成成功
-        if (data.analysis) {
-          captureGenerateSuccess(data.analysis, Date.now() - startTime);
-          captureResultImpression(data.analysis);
-        }
-      } catch (err) {
+        const data = (await response.json()) as GenerateApiResponse;
+        applyApiPayload(data, Date.now() - startTime, true);
+      } catch (err: unknown) {
         // 埋点：生成失败
         captureGenerateError('frontend_fetch_error', Date.now() - startTime);
-        setError('生成失败，请稍后再试');
+        setError(err instanceof Error ? err.message : '生成失败，请稍后再试');
+        setWarning(null);
         console.error(err);
       } finally {
         setIsLoading(false);
@@ -81,28 +112,20 @@ export default function ResultPage() {
 
     setIsLoading(true);
     setError(null);
+    setWarning(null);
 
     try {
+      const startTime = Date.now();
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input: savedInput }),
       });
 
-      if (!response.ok) {
-        throw new Error('生成失败');
-      }
-
-      const data = await response.json();
-      setResult(data.result);
-      setAnalysis(data.analysis);
-      
-      // 埋点：新结果展示
-      if (data.analysis) {
-        captureResultImpression(data.analysis);
-      }
-    } catch (err) {
-      setError('生成失败，请稍后再试');
+      const data = (await response.json()) as GenerateApiResponse;
+      applyApiPayload(data, Date.now() - startTime, true);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '生成失败，请稍后再试');
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -114,7 +137,7 @@ export default function ResultPage() {
   };
 
   const handleActionTaken = () => {
-    alert('太棒了！你已经迈出了第一步！🎉');
+    // 点击“开始行动”仅记录状态，不弹完成提示。
   };
 
   const handleBackToHome = () => {
@@ -125,31 +148,7 @@ export default function ResultPage() {
   if (isLoading) {
     return (
       <main className="min-h-screen bg-paper relative overflow-hidden">
-        {/* SVG 手绘滤镜 */}
-        <svg width="0" height="0" className="absolute">
-          <defs>
-            <filter id="sketch-filter">
-              <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" result="noise" />
-              <feDisplacementMap in="SourceGraphic" in2="noise" scale="2" />
-            </filter>
-          </defs>
-        </svg>
-
-        {/* 纸张纹理背景 */}
-        <div className="fixed inset-0 opacity-20 pointer-events-none" 
-             style={{ 
-               backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence baseFrequency='0.9' /%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E")`,
-               backgroundRepeat: 'repeat'
-             }} 
-        />
-        
-        {/* 背景手绘装饰 */}
-        <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-20">
-          <div className="absolute top-20 left-10 w-32 h-32 border-2 border-black rounded-full" style={{ transform: 'rotate(-15deg)', borderRadius: '47% 53% 44% 56% / 45% 47% 53% 55%' }} />
-          <div className="absolute bottom-32 right-20 w-24 h-24 border-2 border-black" style={{ transform: 'rotate(20deg)', borderRadius: '5px' }} />
-          <div className="absolute top-1/2 right-10 text-4xl">～</div>
-          <div className="absolute bottom-1/4 left-20 text-2xl">✦</div>
-        </div>
+        <SketchBackground />
 
         <div className="container mx-auto px-4 py-12 relative z-10">
           <Hero />
@@ -161,34 +160,16 @@ export default function ResultPage() {
 
   return (
     <main className="min-h-screen bg-paper relative overflow-hidden">
-      {/* SVG 手绘滤镜 */}
-      <svg width="0" height="0" className="absolute">
-        <defs>
-          <filter id="sketch-filter">
-            <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" result="noise" />
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="2" />
-          </filter>
-        </defs>
-      </svg>
-
-      {/* 纸张纹理背景 */}
-      <div className="fixed inset-0 opacity-20 pointer-events-none" 
-           style={{ 
-             backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence baseFrequency='0.9' /%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E")`,
-             backgroundRepeat: 'repeat'
-           }} 
-      />
-      
-      {/* 背景手绘装饰 */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-20">
-        <div className="absolute top-20 left-10 w-32 h-32 border-2 border-black rounded-full" style={{ transform: 'rotate(-15deg)', borderRadius: '47% 53% 44% 56% / 45% 47% 53% 55%' }} />
-        <div className="absolute bottom-32 right-20 w-24 h-24 border-2 border-black" style={{ transform: 'rotate(20deg)', borderRadius: '5px' }} />
-        <div className="absolute top-1/2 right-10 text-4xl">～</div>
-        <div className="absolute bottom-1/4 left-20 text-2xl">✦</div>
-      </div>
+      <SketchBackground />
 
       <div className="container mx-auto px-4 py-12 relative z-10">
         <Hero />
+
+        {warning && (
+          <div className="max-w-2xl mx-auto mt-6 p-4 bg-yellow-50 border-2 border-black rounded-none shadow-hard text-center card-rotate-slight-inverse">
+            <p className="text-yellow-800 font-body text-base">{warning}</p>
+          </div>
+        )}
         
         {error && (
           <div className="max-w-2xl mx-auto mt-8 p-6 bg-red-50 border-2 border-black rounded-none shadow-hard text-center card-rotate-slight">
@@ -200,23 +181,42 @@ export default function ResultPage() {
               <p className="text-sm opacity-80 font-body">别担心，我们已经准备了备用方案</p>
             </div>
             <div className="flex flex-wrap gap-3 justify-center">
-              <button
-                onClick={() => window.location.reload()}
-                className="px-6 py-2.5 bg-red-600 text-white font-handwriting font-bold border-2 border-black rounded-none shadow-hard hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all"
-              >
-                🔄 重试一次
-              </button>
-              <button
-                onClick={handleBackToHome}
-                className="px-6 py-2.5 bg-white text-gray-700 font-handwriting font-bold border-2 border-black rounded-none shadow-hard hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all"
-              >
-                返回首页
-              </button>
+              {error.includes('API密钥') ? (
+                <>
+                  <button
+                    onClick={handleBackToHome}
+                    className="px-6 py-2.5 bg-red-600 text-white font-handwriting font-bold border-2 border-black rounded-none shadow-hard hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all"
+                  >
+                    返回首页
+                  </button>
+                  <button
+                    onClick={() => alert('请联系管理员检查API密钥配置')}
+                    className="px-6 py-2.5 bg-white text-gray-700 font-handwriting font-bold border-2 border-black rounded-none shadow-hard hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all"
+                  >
+                    联系支持
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="px-6 py-2.5 bg-red-600 text-white font-handwriting font-bold border-2 border-black rounded-none shadow-hard hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all"
+                  >
+                    🔄 重试一次
+                  </button>
+                  <button
+                    onClick={handleBackToHome}
+                    className="px-6 py-2.5 bg-white text-gray-700 font-handwriting font-bold border-2 border-black rounded-none shadow-hard hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all"
+                  >
+                    返回首页
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
         
-        {result && analysis && (
+        {result && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <ResultsSection result={result} />
             
@@ -224,14 +224,14 @@ export default function ResultPage() {
               <h2 className="text-2xl font-handwriting font-bold text-center mb-6 text-gray-800">
                 ✨ 你的精神贴纸
               </h2>
-              <StickerCard text={result.sticker_text} analysis={analysis} />
+              <StickerCard text={result.sticker_text} analysis={analysis ?? DEFAULT_ANALYSIS} />
             </div>
             
             <FeedbackSection 
               onLiked={handleLiked}
               onRegenerate={handleRegenerate}
               onActionTaken={handleActionTaken}
-              analysis={analysis}
+              analysis={analysis ?? DEFAULT_ANALYSIS}
             />
 
             <div className="text-center mt-8 mb-12">

@@ -1,0 +1,11 @@
+{
+  "dashscopeBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  "generationModel": "qwen-flash",
+  "promptVersion": "v2",
+  "availableModels": [
+    "qwen-flash",
+    "qwen-plus",
+    "qwen3.5-plus",
+    "qwen3.5-flash"
+  ]
+}

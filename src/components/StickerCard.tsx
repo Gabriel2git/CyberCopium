@@ -103,11 +103,13 @@ export default function StickerCard({ text, analysis }: StickerCardProps) {
 
   return (
     <div className="w-full max-w-xs mx-auto">
-      <div 
-        className="bg-white rounded-none p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] border-4 border-black relative cursor-pointer hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all"
+      <button
+        type="button"
+        className="w-full bg-white rounded-none p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] border-4 border-black relative cursor-pointer hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all text-left"
         style={{ transform: 'rotate(2deg)' }}
         onClick={handleSave}
         title="点击保存贴纸"
+        aria-label="保存精神贴纸"
       >
         {/* 角落标记 */}
         <div className="absolute top-2 left-2 w-3 h-3 border-l-2 border-t-2 border-black" />
@@ -127,7 +129,7 @@ export default function StickerCard({ text, analysis }: StickerCardProps) {
             赛博吸氧机 | Cyber Copium
           </p>
         </div>
-      </div>
+      </button>
       <p className="text-center text-sm text-gray-500 mt-4 font-body">
         点击卡片保存贴纸
       </p>

@@ -1,0 +1,690 @@
+二十三、数据埋点与效果评估 PRD
+23.1 目标说明
+
+本模块的目标不是做一个复杂的数据平台，而是为赛博吸氧机建立最小可用的数据观察能力，用于回答三个核心问题：
+
+用户有没有被看懂
+
+用户有没有觉得内容值得保存
+
+用户有没有被推动去做一个最小行动
+
+因此，埋点体系服务于产品验证，而不是服务于增长黑客或商业化运营。MVP 阶段的数据设计必须轻量、可落地、能支持版本迭代。
+
+23.2 为什么要埋点
+
+对于这个产品来说，单纯看“访问量”没有意义。因为它的价值不是被多少人点开，而是一次生成后是否形成以下链条：
+
+输入困境 → 生成结果 → 被用户认可为嘴替 → 被保存/截图 → 推动一次最小行动
+
+所以埋点的意义在于：
+
+验证哪类输入更容易被命中
+
+验证哪种风格更容易被保存
+
+验证哪类微行动更容易被点击和完成
+
+验证 Prompt 或控制层改动后，效果是否真的提升
+
+23.3 数据设计原则
+
+只记录和产品验证直接相关的数据，不追求大而全
+
+优先记录“生成是否成功”“结果是否被认可”“行动是否发生”
+
+前端事件与模型控制层字段必须能关联
+
+不记录不必要的敏感内容，不做用户画像过度推断
+
+数据设计要能支持后续 A/B 对比和 Prompt 版本对比
+
+23.4 评估框架
+
+埋点体系围绕三层评估框架展开。
+
+第一层：理解层（Understanding）
+
+回答“系统有没有看懂用户输入”。
+
+关注信号：
+
+生成成功率
+
+重新生成率
+
+“像不像我想说的”反馈率
+
+不同场景下的命中差异
+
+第二层：表达层（Expression）
+
+回答“生成内容是否足够有嘴替感和传播价值”。
+
+关注信号：
+
+贴纸保存率
+
+抽象嘴替复制率
+
+结果曝光后的停留与展开行为
+
+第三层：行动层（Action）
+
+回答“内容是否推动了用户采取一步动作”。
+
+关注信号：
+
+微行动点击率
+
+微行动完成自报率
+
+“有没有帮我动起来”反馈率
+
+23.5 事件清单（MVP 最小埋点）
+A. 页面与输入事件
+
+page_view
+页面首次加载时触发。
+作用：统计基础访问与会话起点。
+
+建议属性：
+
+session_id
+
+referrer
+
+device_type
+
+build_version
+
+sample_prompt_click
+点击示例输入时触发。
+作用：区分用户是自由输入还是依赖示例进入。
+
+建议属性：
+
+sample_text
+
+sample_type
+
+generate_submit
+点击生成按钮时触发。
+作用：记录一次真实需求提交。
+
+建议属性：
+
+input_length
+
+input_source（manual / sample）
+
+build_version
+
+B. 生成链路事件
+
+generate_success
+API 成功返回结构化结果时触发。
+作用：衡量系统可用性，并为后续分析挂上控制层字段。
+
+建议属性：
+
+latency_ms
+
+model_name
+
+prompt_version
+
+scene
+
+status_tag
+
+tone_level
+
+primary_block
+
+style_mode
+
+risk_level
+
+action_window
+
+generate_error
+API 失败或输出解析失败时触发。
+作用：衡量生成链路稳定性。
+
+建议属性：
+
+error_type
+
+latency_ms
+
+prompt_version
+
+model_name
+
+fallback_used
+
+safety_downgrade_triggered
+触发高风险降级时触发。
+作用：验证安全机制是否生效。
+
+建议属性：
+
+original_tone_level
+
+final_tone_level
+
+risk_level
+
+trigger_reason
+
+C. 结果消费事件
+
+result_impression
+结果卡片成功渲染时触发。
+作用：作为大多数转化指标的分母。
+
+建议属性：
+
+scene
+
+status_tag
+
+tone_level
+
+style_mode
+
+risk_level
+
+voice_line_copy
+用户复制抽象嘴替时触发。
+作用：衡量嘴替感和传播价值。
+
+建议属性：
+
+scene
+
+tone_level
+
+style_mode
+
+sticker_save_click
+用户保存贴纸时触发。
+作用：衡量结果的内容资产价值。
+
+建议属性：
+
+sticker_text_length
+
+scene
+
+tone_level
+
+style_mode
+
+regenerate_click
+用户点击重新生成时触发。
+作用：反映第一次输出未命中或不满意。
+
+建议属性：
+
+previous_scene
+
+previous_status_tag
+
+previous_tone_level
+
+previous_style_mode
+
+D. 反馈与行动事件
+
+feedback_understood
+点击“像我想说的”时触发。
+作用：衡量命中感。
+
+建议属性：
+
+scene
+
+status_tag
+
+tone_level
+
+style_mode
+
+feedback_helpful
+点击“有帮我动起来”时触发。
+作用：衡量主观帮助度。
+
+建议属性：
+
+scene
+
+tone_level
+
+style_mode
+
+action_window
+
+micro_action_click
+点击最小行动时触发。
+作用：衡量用户是否愿意接受行动引导。
+
+建议属性：
+
+scene
+
+status_tag
+
+primary_block
+
+tone_level
+
+action_window
+
+micro_action_done
+点击“我去做了”或“已完成”时触发。
+作用：衡量最接近闭环价值的行为完成信号。
+
+建议属性：
+
+scene
+
+tone_level
+
+style_mode
+
+action_window
+
+23.6 MVP 必埋的 12 条事件
+
+MVP 阶段不要求一次上全量事件，但以下 12 条建议优先落地：
+
+page_view
+
+sample_prompt_click
+
+generate_submit
+
+generate_success
+
+generate_error
+
+result_impression
+
+regenerate_click
+
+feedback_understood
+
+feedback_helpful
+
+sticker_save_click
+
+micro_action_click
+
+micro_action_done
+
+这 12 条已经足够支撑一版 AI PM 级别的数据分析。
+
+23.7 核心指标定义
+1. 生成成功率
+
+定义： generate_success / generate_submit
+
+意义： 衡量 API 链路、Prompt 输出格式和解析流程是否稳定。
+
+2. 命中感（Felt Understood Rate）
+
+定义： feedback_understood / result_impression
+
+意义： 衡量用户是否认为结果“像自己会说的话”。
+
+3. 再生成率（Regeneration Rate）
+
+定义： regenerate_click / result_impression
+
+意义： 衡量第一次输出未命中的比例。该值越高，说明生成质量或风格控制越不稳定。
+
+4. 贴纸保存率（Sticker Save Rate）
+
+定义： sticker_save_click / result_impression
+
+意义： 衡量结果是否具有截图、保存、传播价值。
+
+5. 行动点击率（Action CTR）
+
+定义： micro_action_click / result_impression
+
+意义： 衡量用户是否愿意接受最小行动引导。
+
+6. 行动完成自报率（Action Completion Self-report Rate）
+
+定义： micro_action_done / micro_action_click
+
+意义： 衡量行动建议是否足够具体、低门槛、可执行。
+
+23.8 分析维度建议
+
+为了让埋点结果可用于 Prompt 调优和产品迭代，建议至少从以下四个维度切片分析：
+
+1. 场景维度
+
+求职场景是否比学习场景更容易触发再生成
+
+工作场景是否更适合低抽象表达
+
+2. 状态标签维度
+
+“羞耻/自我否定”是否更需要 L1/L2，而不是 L3
+
+“轻度发疯/情绪过载”是否更适合高抽象风格
+
+3. 语气强度维度
+
+L1、L2、L3 对命中感、保存率、行动率分别影响如何
+
+4. 风格模式维度
+
+哪种 style_mode 在求职场景中保存率更高
+
+哪种 style_mode 在学习场景中行动点击率更高
+
+23.9 数据不该怎么用
+
+为了保持产品边界和用户信任，MVP 阶段不应这样做：
+
+不根据单次输入给用户贴长期人格标签
+
+不做敏感情绪画像沉淀
+
+不将高风险判断用于营销或推荐
+
+不记录完整原始输入做长期无上限存储（若后续要存储，应先做脱敏或告知）
+
+23.10 技术实现方案
+
+MVP 阶段建议采用轻量埋点方案，不引入重型数据基础设施。
+
+前端埋点
+
+在页面关键交互点触发事件上报，例如：
+
+页面加载
+
+点击示例
+
+点击生成
+
+结果渲染成功
+
+点击反馈
+
+点击保存贴纸
+
+点击最小行动
+
+后端埋点
+
+在 API 返回成功、失败、安全降级等关键点触发服务端事件，保证即使前端失败也能保留部分链路信息。
+
+推荐工具
+
+MVP 阶段：PostHog 或自定义 /api/track 路由
+
+若以最快落地为目标：优先 PostHog
+
+若强调可控性和演示完整性：可先做自定义事件接口，再决定是否接入第三方分析平台
+
+23.11 验收标准
+
+埋点模块完成后，应至少满足以下条件：
+
+12 条核心事件可稳定触发
+
+关键指标可以在一周内被统计出来
+
+事件属性能关联到控制层字段（scene、status_tag、tone_level 等）
+
+可以支持一次 Prompt 版本前后对比分析
+
+可在面试中明确讲出“如何验证这个产品是否真的命中和推动了用户”
+
+二十四、埋点技术图（技术链路）
+[用户输入]
+    ↓
+[前端页面 Next.js]
+    ├─ 触发事件: page_view / sample_prompt_click / generate_submit
+    ↓
+[/api/generate]
+    ↓
+[Analyzer / Control Layer]
+    ├─ 输出: scene / status_tag / tone_level / primary_block / risk_level / action_window / style_mode
+    ↓
+[Composer / Presentation Layer]
+    ├─ 输出: status_label / voice_line / absurd_motivation / micro_action / sticker_text
+    ↓
+[返回前端结果页]
+    ├─ 触发事件: result_impression
+    ├─ 触发事件: regenerate_click
+    ├─ 触发事件: feedback_understood / feedback_helpful
+    ├─ 触发事件: sticker_save_click / voice_line_copy
+    ├─ 触发事件: micro_action_click / micro_action_done
+    ↓
+[埋点收集层]
+    ├─ 方案 A: PostHog SDK / API
+    └─ 方案 B: 自定义 /api/track
+    ↓
+[事件存储]
+    ├─ 前期: PostHog 内部事件库 或 轻量数据库
+    └─ 后期: 按 prompt_version / tone_level / style_mode 做分析
+    ↓
+[指标看板]
+    ├─ 生成成功率
+    ├─ 命中感
+    ├─ 再生成率
+    ├─ 贴纸保存率
+    ├─ 行动点击率
+    └─ 行动完成自报率
+二十五、埋点实施建议
+
+若当前时间有限，建议分两步落地。
+
+第一步：先做前端 8 条事件
+
+优先埋：
+
+page_view
+
+sample_prompt_click
+
+generate_submit
+
+result_impression
+
+regenerate_click
+
+feedback_understood
+
+sticker_save_click
+
+micro_action_click
+
+第二步：补后端质量事件
+
+再补：
+
+generate_success
+
+generate_error
+
+micro_action_done
+
+feedback_helpful
+
+safety_downgrade_triggered
+
+这样可以最快形成一个既能演示、又能讲清楚验证逻辑的 MVP 数据体系。
+
+先把“埋点”讲清楚
+
+埋点不是“为了显得专业，多记一点点击数据”。埋点的本质，是把你脑子里对产品价值的判断，翻译成一套可以被观察、被比较、被验证的信号。
+
+对“赛博吸氧机”来说，真正的问题不是“有多少人打开了网页”，而是这条链路有没有发生：
+
+用户输入困境 → 系统生成结果 → 用户觉得“这话像我会说的” → 用户愿意保存/截图 → 用户真的愿意做那个最小行动
+
+所以你做埋点，不是在做普通流量统计，而是在验证三件事：
+
+第一，系统有没有看懂用户。
+第二，生成内容有没有说中用户。
+第三，内容有没有推动用户。
+
+这就是你后面在面试里最该讲的框架。不是 PV、UV，而是 Understanding / Expression / Action 三层验证。
+
+为什么你的项目特别需要埋点
+
+因为你的产品不是纯工具，也不是纯内容，而是介于两者之间。它既有“表达价值”，也有“行动价值”。如果没有埋点，你最后只能说“我觉得这个东西挺有意思”。但一旦有了埋点，你就能说：
+
+我们发现 L2 轻抽象模式在求职场景下的命中感更高；
+某种风格的贴纸保存率更高；
+某类微行动点击率更高；
+某版 Prompt 上线后，再生成率下降了。
+
+这一下，你从“做了个 AI 小玩具”，变成了“做了个有验证意识的 AI 产品”。这对 AI PM 求职非常重要。
+
+你应该埋什么，不应该埋什么
+
+你现在是 MVP，不要一上来搞大而全的数据系统。最稳的思路是：只埋那些能直接回答产品问题的事件。
+
+你该埋的是：
+
+页面有没有被打开；
+用户有没有真的发起生成；
+生成有没有成功；
+结果有没有真正渲染出来；
+用户有没有点“像我想说的”；
+有没有重新生成；
+有没有保存贴纸；
+有没有点最小行动；
+有没有点“我去做了”。
+
+这些事件能完整覆盖你的价值链。
+
+你不该现在就做的是：
+
+复杂用户画像；
+长期人格分析；
+敏感情绪标签沉淀；
+花里胡哨的几十个前端 UI 事件。
+
+那样既重，又偏，而且不符合你现在的项目阶段。
+
+埋点可以分成哪三层
+
+第一层叫生成质量层。它看的是系统有没有稳定工作。比如 generate_submit、generate_success、generate_error、safety_downgrade_triggered。这一层回答的是：模型链路稳不稳，Prompt 输出规不规整，安全降级有没有生效。
+
+第二层叫表达命中层。它看的是结果有没有被用户认可。比如 result_impression、feedback_understood、regenerate_click、sticker_save_click、voice_line_copy。这一层回答的是：这句话像不像用户会说的，生成结果值不值得保存。
+
+第三层叫行动转化层。它看的是生成结果有没有把用户往前推一步。比如 micro_action_click、micro_action_done、feedback_helpful。这一层回答的是：这口赛博氧气有没有变成一点点现实动作。
+
+这三层连起来，就是你的完整验证逻辑。
+
+一个最简单的理解方式
+
+你可以把埋点想象成在产品里埋“问题探针”。
+
+generate_submit 在问：用户真的有需求吗？
+generate_success 在问：系统能稳定回应吗？
+feedback_understood 在问：系统是不是懂我？
+sticker_save_click 在问：结果是不是值得留下？
+micro_action_click 在问：用户愿不愿意动？
+micro_action_done 在问：用户真的动了吗？
+
+这样你就不会把埋点理解成技术活，而会把它理解成产品判断的证据系统。
+
+MVP 最值得先做的 12 条事件
+
+这 12 条最适合你现在直接上：
+
+page_view
+sample_prompt_click
+generate_submit
+generate_success
+generate_error
+result_impression
+regenerate_click
+feedback_understood
+feedback_helpful
+sticker_save_click
+micro_action_click
+micro_action_done
+
+用这 12 条，你已经能算出最核心的几个指标：
+
+生成成功率 = generate_success / generate_submit
+命中感 = feedback_understood / result_impression
+再生成率 = regenerate_click / result_impression
+贴纸保存率 = sticker_save_click / result_impression
+行动点击率 = micro_action_click / result_impression
+行动完成自报率 = micro_action_done / micro_action_click
+
+这 6 个指标，已经足够你做一版非常像 AI PM 的分析了。
+
+技术上怎么落
+
+技术上很简单，别把它想复杂。
+
+前端在关键交互点触发事件。比如页面加载时发 page_view，点示例按钮时发 sample_prompt_click，点生成时发 generate_submit，结果渲染后发 result_impression，点贴纸保存时发 sticker_save_click。
+
+后端在关键链路点补服务端事件。比如 /api/generate 成功后发 generate_success，失败时发 generate_error，安全降级时发 safety_downgrade_triggered。这样即使前端有些事件没发出去，你也能保住最核心的生成链路数据。
+
+你当前最适合的方案有两个。
+方案 A 是直接上 PostHog，快，适合 MVP。
+方案 B 是自己做一个 /api/track，把事件写入轻量数据库或日志。
+如果目标是“最快形成求职可讲的数据体系”，优先 PostHog。
+如果你想更强调“我自己设计了事件管道”，可以先做自定义 /api/track。
+
+技术图
+
+这张图是你现在最适合拿去和开发、和面试讲的版本：
+
+[用户输入]
+    ↓
+[前端页面 Next.js]
+    ├─ page_view
+    ├─ sample_prompt_click
+    ├─ generate_submit
+    ↓
+[/api/generate]
+    ↓
+[Analyzer / Control Layer]
+    ├─ 输出: scene / status_tag / tone_level / primary_block / risk_level / action_window / style_mode
+    ↓
+[Composer / Presentation Layer]
+    ├─ 输出: status_label / voice_line / absurd_motivation / micro_action / sticker_text
+    ↓
+[返回前端结果页]
+    ├─ result_impression
+    ├─ regenerate_click
+    ├─ feedback_understood / feedback_helpful
+    ├─ sticker_save_click / voice_line_copy
+    ├─ micro_action_click / micro_action_done
+    ↓
+[埋点收集层]
+    ├─ PostHog
+    └─ 或自定义 /api/track
+    ↓
+[事件存储与分析]
+    ├─ prompt_version
+    ├─ scene
+    ├─ status_tag
+    ├─ tone_level
+    ├─ style_mode
+    ↓
+[指标看板]
+    ├─ 生成成功率
+    ├─ 命中感
+    ├─ 再生成率
+    ├─ 贴纸保存率
+    ├─ 行动点击率
+    └─ 行动完成自报率

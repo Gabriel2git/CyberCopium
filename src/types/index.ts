@@ -52,7 +52,9 @@ export type StatusTag =
 
 // 第二层：Composer 输出的五件套
 export interface GenerationResult {
-  status_label: string;      // 状态命名 (≤20 字)
+  // 抽象状态命名：基于status_tag但更加个性化和网感化，自由生成非枚举
+  // 示例："高优级拖延症发作中"、"电量只剩1%的赛博游魂"、"薛定谔的努力"
+  status_label: string;      // 抽象状态命名 (≤20 字)
   voice_line: string;        // 抽象嘴替 (≤50 字)
   sticker_text: string;      // 贴纸文案 (≤15 字)
   absurd_motivation: string; // 荒诞动机 (≤40 字)
@@ -67,4 +69,23 @@ export interface UserFeedback {
   helpful: boolean | null;       // 有没有帮我动起来
   regenerated: boolean;          // 是否重新生成
   actionTaken: boolean;          // 是否去做了
+}
+
+export type GenerateErrorCode =
+  | 'SUCCESS'
+  | 'INVALID_INPUT'
+  | 'CONFIG_MISSING'
+  | 'ANALYZER_FAILED'
+  | 'COMPOSER_FAILED'
+  | 'TIMEOUT'
+  | 'UNKNOWN_ERROR'
+  | 'INVALID_API_KEY';
+
+export interface GenerateApiResponse {
+  ok: boolean;
+  code: GenerateErrorCode;
+  result?: GenerationResult;
+  analysis?: AnalysisResult;
+  warning?: string;
+  error?: string;
 }

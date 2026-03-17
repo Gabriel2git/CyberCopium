@@ -18,15 +18,19 @@
 DASHSCOPE_API_KEY=sk-你的真实 APIKey
 ```
 
-### 3. 模型选择
+### 3. 模型选择（单一配置源）
 
-在 `src/app/api/generate/route.ts` 中，当前配置的模型是：
+项目统一通过 `config/model.json` 管理模型与版本，当前默认配置为：
 
-```typescript
-model: 'qwen-plus',  // 推荐：性能和成本平衡
+```json
+{
+  "generationModel": "qwen-flash",
+  "promptVersion": "v2"
+}
 ```
 
 可选模型：
+- `qwen-flash` - 推荐：低延迟、稳定性高
 - `qwen-turbo` - 快速响应，成本最低
 - `qwen-plus` - 性能和成本平衡（推荐）
 - `qwen-max` - 最强能力，成本最高

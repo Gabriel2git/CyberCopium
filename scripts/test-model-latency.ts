@@ -1,6 +1,7 @@
 const OpenAI = require('openai');
 const dotenv = require('dotenv');
 const path = require('path');
+const modelConfig = require('../config/model.json');
 
 // 加载环境变量
 dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
@@ -90,7 +91,7 @@ function generateAnalyzerUserPrompt(input) {
 
 // 待测试的模型
 const MODELS = [
-  'qwen-flash',
+  modelConfig.generationModel,
   'qwen3.5-flash',
   'qwen3.5-flash-2026-02-23',
 ];
@@ -111,7 +112,7 @@ function createClient() {
 
   return new OpenAI({
     apiKey,
-    baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    baseURL: modelConfig.dashscopeBaseUrl,
     timeout: TEST_CONFIG.timeout,
   });
 }

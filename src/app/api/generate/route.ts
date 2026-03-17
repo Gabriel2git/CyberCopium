@@ -9,154 +9,255 @@ import {
   FALLBACK_RESULT,
   HIGH_RISK_FALLBACK_RESULT,
 } from '@/lib/prompt';
-import { AnalysisResult, GenerationResult } from '@/types';
+import {
+  AnalysisResult,
+  GenerateApiResponse,
+  GenerateErrorCode,
+  GenerationResult,
+} from '@/types';
+import {
+  DASHSCOPE_BASE_URL,
+  GENERATION_MODEL,
+  PROMPT_VERSION,
+} from '@/config/model';
 
 // 配置阿里云百炼客户端
 const client = new OpenAI({
   apiKey: process.env.DASHSCOPE_API_KEY,
-  baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  baseURL: DASHSCOPE_BASE_URL,
   timeout: 15000, // 15 秒超时（两次调用）
 });
 
 // 简单的服务端埋点函数
-const captureServerEvent = (eventName: string, properties?: Record<string, any>) => {
+const captureServerEvent = (eventName: string, properties?: Record<string, unknown>) => {
   // 这里可以接入服务端埋点系统，如 PostHog 服务端 SDK
   // 目前先打印到控制台，后续可以接入正式埋点系统
-  console.log(`[Server Event] ${eventName}`, properties);
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[Server Event] ${eventName}`, properties);
+  }
+};
+
+const ANALYSIS_REQUIRED_FIELDS = [
+  'scene',
+  'status_tag',
+  'tone_level',
+  'primary_block',
+  'risk_level',
+  'action_window',
+  'style_mode',
+  'analysis_summary',
+] as const;
+
+const RESULT_REQUIRED_FIELDS = [
+  'status_label',
+  'voice_line',
+  'sticker_text',
+  'absurd_motivation',
+  'micro_action',
+  'tone_level',
+  'status_tag',
+] as const;
+
+const createResponse = (payload: GenerateApiResponse, status = 200) => {
+  return NextResponse.json(payload, { status });
+};
+
+const isObjectRecord = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === 'object' && value !== null;
+};
+
+const hasRequiredFields = <T extends readonly string[]>(
+  value: unknown,
+  fields: T
+): value is Record<T[number], unknown> => {
+  return isObjectRecord(value) && fields.every((field) => field in value);
+};
+
+const getFallbackResult = (analysis: AnalysisResult): GenerationResult => {
+  return analysis.risk_level === 'high'
+    ? HIGH_RISK_FALLBACK_RESULT
+    : FALLBACK_RESULT;
+};
+
+const getErrorCodeFromException = (error: unknown): GenerateErrorCode => {
+  if (
+    isObjectRecord(error) &&
+    ((error.code === 'ECONNABORTED') ||
+      (typeof error.message === 'string' && error.message.toLowerCase().includes('timeout')))
+  ) {
+    return 'TIMEOUT';
+  }
+
+  return 'UNKNOWN_ERROR';
+};
+
+const renderComposerPrompt = (analysis: AnalysisResult) => {
+  const variables: Record<string, string> = {
+    style_mode: analysis.style_mode,
+    tone_level: analysis.tone_level,
+    action_window: analysis.action_window,
+    status_tag: analysis.status_tag,
+    risk_level: analysis.risk_level,
+  };
+
+  return Object.entries(variables).reduce((prompt, [key, value]) => {
+    return prompt.replaceAll(`{${key}}`, value);
+  }, COMPOSER_PROMPT);
 };
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  
-  try {
-    const body = await request.json();
-    const { input } = body;
+  let analysis: AnalysisResult = FALLBACK_ANALYSIS;
+  let analyzerFallbackUsed = false;
 
-    if (!input || typeof input !== 'string') {
-      return NextResponse.json(
-        { error: '请输入有效内容' },
-        { status: 400 }
+  try {
+    let body: unknown;
+
+    try {
+      body = await request.json();
+    } catch {
+      return createResponse(
+        {
+          ok: false,
+          code: 'INVALID_INPUT',
+          error: '请求体格式错误，请输入文本内容',
+        },
+        400
+      );
+    }
+
+    const input = isObjectRecord(body) ? body.input : undefined;
+    const normalizedInput = typeof input === 'string' ? input.trim() : '';
+
+    if (!normalizedInput) {
+      return createResponse(
+        {
+          ok: false,
+          code: 'INVALID_INPUT',
+          error: '请输入有效内容',
+        },
+        400
+      );
+    }
+
+    if (normalizedInput.length > 200) {
+      return createResponse(
+        {
+          ok: false,
+          code: 'INVALID_INPUT',
+          error: '输入内容过长，请控制在 200 字以内',
+        },
+        400
       );
     }
 
     if (!process.env.DASHSCOPE_API_KEY) {
-      console.warn('DASHSCOPE_API_KEY 未配置，使用 fallback 数据');
-      return NextResponse.json({ result: FALLBACK_RESULT });
+      return createResponse(
+        {
+          ok: false,
+          code: 'CONFIG_MISSING',
+          error: '生成服务暂不可用',
+          warning: '系统已切换为备用内容',
+          result: FALLBACK_RESULT,
+          analysis: FALLBACK_ANALYSIS,
+        },
+        503
+      );
     }
 
     // ========== 第一层：Generation Control Layer (Analyzer) ==========
-    let analysis: AnalysisResult;
-    let originalToneLevel: string = 'L2';
-    
     try {
-      const analysisStartTime = Date.now();
       const analysisCompletion = await client.chat.completions.create({
-        model: 'qwen-flash',
+        model: GENERATION_MODEL,
         messages: [
           { role: 'system', content: ANALYZER_PROMPT },
-          { role: 'user', content: generateAnalyzerUserPrompt(input) },
+          { role: 'user', content: generateAnalyzerUserPrompt(normalizedInput) },
         ],
-        temperature: 0.3, // 低温度，更稳定的分析
+        temperature: 0.3,
         max_tokens: 300,
         response_format: { type: 'json_object' },
       });
-      const analysisLatency = Date.now() - analysisStartTime;
 
       const analysisContent = analysisCompletion.choices[0]?.message?.content;
-      
+
       if (!analysisContent) {
         throw new Error('Analyzer 未返回内容');
       }
 
-      analysis = JSON.parse(analysisContent) as AnalysisResult;
+      const parsedAnalysis = JSON.parse(analysisContent);
 
-      // 验证必要字段
-      if (!analysis.scene || !analysis.status_tag || !analysis.tone_level ||
-          !analysis.primary_block || !analysis.risk_level || !analysis.action_window ||
-          !analysis.style_mode || !analysis.analysis_summary) {
+      if (!hasRequiredFields(parsedAnalysis, ANALYSIS_REQUIRED_FIELDS)) {
         throw new Error('Analyzer 返回字段不完整');
       }
 
-      // 记录原始 tone_level
-      originalToneLevel = analysis.tone_level;
+      analysis = parsedAnalysis as AnalysisResult;
 
-      // 风控：高风险强制降级为 L1
+      const originalToneLevel = analysis.tone_level;
       if (analysis.risk_level === 'high' && analysis.tone_level !== 'L1') {
-        console.log('检测到高风险内容，强制降级为 L1');
-        
-        // 埋点：安全降级触发
+        analysis.tone_level = 'L1';
         captureServerEvent('safety_downgrade_triggered', {
           original_tone_level: originalToneLevel,
           final_tone_level: 'L1',
           risk_level: analysis.risk_level,
           trigger_reason: 'high_risk_content_detected',
         });
-        
-        analysis.tone_level = 'L1';
       }
-
     } catch (analysisError: any) {
-      console.error('Analyzer 失败:', analysisError);
-      // Analyzer 失败时使用 fallback 分析
+      analyzerFallbackUsed = true;
       analysis = FALLBACK_ANALYSIS;
-      
-      // 埋点：生成错误
+
+      const errorType = analysisError?.code === 'invalid_api_key' ? 'invalid_api_key' : 'analyzer_failed';
+      const errorMessage = analysisError?.code === 'invalid_api_key' ? 'API密钥无效，请检查配置' : '分析器失败';
+
       captureServerEvent('generate_error', {
-        error_type: 'analyzer_failed',
+        error_type: errorType,
         latency_ms: Date.now() - startTime,
-        prompt_version: 'v2',
-        model_name: 'qwen-flash',
+        prompt_version: PROMPT_VERSION,
+        model_name: GENERATION_MODEL,
         fallback_used: true,
       });
+
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Analyzer 失败:', analysisError);
+      }
     }
 
     // ========== 第二层：Presentation Layer (Composer) ==========
     try {
-      const composerStartTime = Date.now();
       const composerCompletion = await client.chat.completions.create({
-        model: 'qwen-flash',
+        model: GENERATION_MODEL,
         messages: [
-          { 
-            role: 'system', 
-            content: COMPOSER_PROMPT
-              .replace('{style_mode}', analysis.style_mode)
-              .replace('{tone_level}', analysis.tone_level)
-              .replace('{action_window}', analysis.action_window)
-              .replace('{tone_level}', analysis.tone_level)
-              .replace('{status_tag}', analysis.status_tag)
+          {
+            role: 'system',
+            content: renderComposerPrompt(analysis),
           },
-          { role: 'user', content: generateComposerUserPrompt(input, analysis) },
+          { role: 'user', content: generateComposerUserPrompt(normalizedInput, analysis) },
         ],
-        temperature: 0.7,
+        temperature: 0.9,
         max_tokens: 500,
         response_format: { type: 'json_object' },
       });
-      const composerLatency = Date.now() - composerStartTime;
-      const totalLatency = Date.now() - startTime;
 
       const composerContent = composerCompletion.choices[0]?.message?.content;
-      
+
       if (!composerContent) {
         throw new Error('Composer 未返回内容');
       }
 
-      const result = JSON.parse(composerContent) as GenerationResult;
+      const parsedResult = JSON.parse(composerContent);
 
-      // 验证必要字段
-      if (!result.status_label || !result.voice_line || !result.sticker_text || 
-          !result.absurd_motivation || !result.micro_action || !result.tone_level || !result.status_tag) {
+      if (!hasRequiredFields(parsedResult, RESULT_REQUIRED_FIELDS)) {
         throw new Error('Composer 返回字段不完整');
       }
 
-      // 确保透传字段正确
+      const result = parsedResult as GenerationResult;
       result.tone_level = analysis.tone_level;
       result.status_tag = analysis.status_tag;
 
-      // 埋点：生成成功
       captureServerEvent('generate_success', {
-        latency_ms: totalLatency,
-        model_name: 'qwen-flash',
-        prompt_version: 'v2',
+        latency_ms: Date.now() - startTime,
+        model_name: GENERATION_MODEL,
+        prompt_version: PROMPT_VERSION,
         scene: analysis.scene,
         status_tag: analysis.status_tag,
         tone_level: analysis.tone_level,
@@ -166,60 +267,73 @@ export async function POST(request: NextRequest) {
         action_window: analysis.action_window,
       });
 
-      return NextResponse.json({
-        result,
-        analysis, // 可选：返回战术板供调试
-      });
+      const warning = analyzerFallbackUsed
+        ? '分析器异常，已使用备用策略生成结果'
+        : undefined;
 
+      return createResponse({
+        ok: true,
+        code: 'SUCCESS',
+        result,
+        analysis,
+        warning,
+      });
     } catch (composerError: any) {
-      console.error('Composer 失败:', composerError);
-      
-      // 埋点：生成错误
+      const fallbackResult = getFallbackResult(analysis);
+      const errorType = composerError?.code === 'invalid_api_key' ? 'invalid_api_key' : 'composer_failed';
+      const errorMessage = composerError?.code === 'invalid_api_key' ? 'API密钥无效，请检查配置' : '生成阶段失败';
+
       captureServerEvent('generate_error', {
-        error_type: 'composer_failed',
+        error_type: errorType,
         latency_ms: Date.now() - startTime,
-        prompt_version: 'v2',
-        model_name: 'qwen-flash',
+        prompt_version: PROMPT_VERSION,
+        model_name: GENERATION_MODEL,
         fallback_used: true,
       });
-      
-      // Composer 失败时，高危场景使用专用 fallback
-      const fallbackResult = analysis.risk_level === 'high' 
-        ? HIGH_RISK_FALLBACK_RESULT 
-        : FALLBACK_RESULT;
-      
-      return NextResponse.json({
-        result: fallbackResult,
-        analysis,
-        warning: '生成失败，已切换至备用方案',
-      });
-    }
 
-  } catch (error: any) {
-    console.error('生成失败:', error);
-    
-    // 埋点：生成错误
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Composer 失败:', composerError);
+      }
+
+      return createResponse(
+        {
+          ok: false,
+          code: composerError?.code === 'invalid_api_key' ? 'INVALID_API_KEY' : 'COMPOSER_FAILED',
+          error: errorMessage,
+          warning: '已切换为备用内容',
+          result: fallbackResult,
+          analysis,
+        },
+        502
+      );
+    }
+  } catch (error) {
+    const code = getErrorCodeFromException(error);
+    const isTimeout = code === 'TIMEOUT';
+    const status = isTimeout ? 504 : 500;
+
     captureServerEvent('generate_error', {
-      error_type: error.code === 'ECONNABORTED' || error.message?.includes('timeout') ? 'timeout' : 'unknown',
+      error_type: isTimeout ? 'timeout' : 'unknown',
       latency_ms: Date.now() - startTime,
-      prompt_version: 'v2',
-      model_name: 'qwen-flash',
+      prompt_version: PROMPT_VERSION,
+      model_name: GENERATION_MODEL,
       fallback_used: true,
     });
-    
-    // 处理超时错误
-    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-      return NextResponse.json({ 
-        error: '生成超时，请稍后重试',
-        code: 'TIMEOUT',
-        result: FALLBACK_RESULT
-      });
+
+    if (process.env.NODE_ENV === 'development') {
+      console.error('生成失败:', error);
     }
-    
-    // 返回 fallback 数据
-    return NextResponse.json({ 
-      result: FALLBACK_RESULT,
-      warning: '生成失败，已切换至备用方案'
-    });
+
+    return createResponse(
+      {
+        ok: false,
+        code,
+        error: isTimeout ? '生成超时，请稍后重试' : '生成失败，请稍后重试',
+        warning: '已切换为备用内容',
+        result: getFallbackResult(analysis),
+        analysis,
+      },
+      status
+    );
   }
 }
