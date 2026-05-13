@@ -21,8 +21,10 @@ import {
   PROMPT_VERSION,
 } from '@/config/model';
 
+const getApiKey = () => process.env.DEEPSEEK_API_KEY || process.env.DASHSCOPE_API_KEY;
+
 const getClient = () => {
-  const apiKey = process.env.DEEPSEEK_API_KEY || process.env.DASHSCOPE_API_KEY;
+  const apiKey = getApiKey();
 
   if (!apiKey) {
     return null;
