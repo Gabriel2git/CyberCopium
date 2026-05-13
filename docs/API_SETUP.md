@@ -1,12 +1,12 @@
 # API 配置指南
 
-## 阿里云百炼（推荐）
+## DeepSeek（推荐）
 
 ### 1. 获取 API Key
 
-1. 访问阿里云百炼控制台：https://bailian.console.aliyun.com/
-2. 登录/注册阿里云账号
-3. 进入"API-KEY 管理"页面
+1. 访问 DeepSeek 开放平台：https://platform.deepseek.com/
+2. 登录/注册 DeepSeek 账号
+3. 进入 API Keys 管理页面
 4. 创建新的 API Key
 5. 复制 Key（格式：`sk-xxxxxxxxxxxxxxxx`）
 
@@ -15,7 +15,7 @@
 编辑 `.env.local` 文件：
 
 ```env
-DASHSCOPE_API_KEY=sk-你的真实 APIKey
+DEEPSEEK_API_KEY=sk-你的真实 APIKey
 ```
 
 ### 3. 模型选择（单一配置源）
@@ -24,16 +24,16 @@ DASHSCOPE_API_KEY=sk-你的真实 APIKey
 
 ```json
 {
-  "generationModel": "qwen-flash",
+  "generationModel": "deepseek-v4-flash",
   "promptVersion": "v2"
 }
 ```
 
 可选模型：
-- `qwen-flash` - 推荐：低延迟、稳定性高
-- `qwen-turbo` - 快速响应，成本最低
-- `qwen-plus` - 性能和成本平衡（推荐）
-- `qwen-max` - 最强能力，成本最高
+- `deepseek-v4-flash` - 推荐：低延迟、稳定性高
+- `deepseek-v4-flash` - 快速响应，成本最低
+- `deepseek-v4-flash` - 性能和成本平衡（推荐）
+- `deepseek-v4-flash` - 最强能力，成本最高
 
 ### 4. 测试配置
 
@@ -47,7 +47,7 @@ npm run dev
 
 ## 故障排查
 
-### 问题 1：提示"DASHSCOPE_API_KEY 未配置"
+### 问题 1：提示"DEEPSEEK_API_KEY 未配置"
 
 **原因**: 环境变量未正确加载
 
@@ -65,7 +65,7 @@ npm run dev
 
 **解决方法**:
 1. 检查 API Key 是否正确
-2. 登录阿里云百炼控制台查看余额
+2. 登录 DeepSeek 控制台查看余额
 3. 检查网络连接
 
 ### 问题 3：返回字段不完整
@@ -78,17 +78,17 @@ npm run dev
 
 ## 成本说明
 
-阿里云百炼 API 按 token 计费：
+DeepSeek API 按 token 计费（请以官方最新价格为准）：
 
-- **qwen-turbo**: 约 ¥0.002/1K tokens
-- **qwen-plus**: 约 ¥0.005/1K tokens  
-- **qwen-max**: 约 ¥0.02/1K tokens
+- **deepseek-v4-flash**: 约 ¥0.002/1K tokens
+- **deepseek-v4-flash**: 约 ¥0.005/1K tokens  
+- **deepseek-v4-flash**: 约 ¥0.02/1K tokens
 
 每次生成约消耗 500-800 tokens，单次成本约 ¥0.003-¥0.016。
 
 ## 从 OpenAI 迁移
 
-如果你之前使用的是 OpenAI，迁移到阿里云百炼非常简单：
+如果你之前使用的是 OpenAI，迁移到 DeepSeek 非常简单：
 
 ### 原 OpenAI 配置：
 ```typescript
@@ -99,20 +99,20 @@ const client = new OpenAI({
 });
 ```
 
-### 新百炼配置：
+### 新 DeepSeek 配置：
 ```typescript
 import OpenAI from 'openai';
 
 const client = new OpenAI({
-  apiKey: process.env.DASHSCOPE_API_KEY,
-  baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  apiKey: process.env.DEEPSEEK_API_KEY,
+  baseURL: 'https://api.deepseek.com/v1',
 });
 ```
 
 主要变化：
-1. 环境变量名从 `OPENAI_API_KEY` 改为 `DASHSCOPE_API_KEY`
-2. 添加了 `baseURL` 指向阿里云百炼的兼容接口
-3. 模型名从 `gpt-3.5-turbo` 改为 `qwen-plus`
+1. 环境变量名从 `OPENAI_API_KEY` 改为 `DEEPSEEK_API_KEY`
+2. 添加了 `baseURL` 指向 DeepSeek 的兼容接口
+3. 模型名从 `gpt-3.5-turbo` 改为 `deepseek-v4-flash`
 
 ## 安全提示
 

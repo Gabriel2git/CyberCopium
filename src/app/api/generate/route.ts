@@ -16,17 +16,24 @@ import {
   GenerationResult,
 } from '@/types';
 import {
-  DASHSCOPE_BASE_URL,
+  PROVIDER_BASE_URL,
   GENERATION_MODEL,
   PROMPT_VERSION,
 } from '@/config/model';
 
-// 配置阿里云百炼客户端
-const client = new OpenAI({
-  apiKey: process.env.DASHSCOPE_API_KEY,
-  baseURL: DASHSCOPE_BASE_URL,
-  timeout: 15000, // 15 秒超时（两次调用）
-});
+const getClient = () => {
+  const apiKey = process.env.DEEPSEEK_API_KEY || process.env.DASHSCOPE_API_KEY;
+
+  if (!apiKey) {
+    return null;
+  }
+
+  return new OpenAI({
+    apiKey,
+    baseURL: PROVIDER_BASE_URL,
+    timeout: 15000, // 15 秒超时（两次调用）
+  });
+};
 
 // 简单的服务端埋点函数
 const captureServerEvent = (eventName: string, properties?: Record<string, unknown>) => {
@@ -151,7 +158,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!process.env.DASHSCOPE_API_KEY) {
+    const client = getClient();
+
+    if (!client) {
       return createResponse(
         {
           ok: false,

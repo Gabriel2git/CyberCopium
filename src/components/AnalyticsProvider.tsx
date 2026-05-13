@@ -1,26 +1,25 @@
 'use client';
 
 import { useEffect } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { initPostHog, capturePageView } from '@/lib/posthog';
 
 export default function AnalyticsProvider() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     initPostHog();
   }, []);
 
   useEffect(() => {
-    const query = searchParams?.toString();
+    const query = typeof window !== 'undefined' ? window.location.search.replace(/^\?/, '') : '';
     const url = query ? `${pathname}?${query}` : pathname;
 
     capturePageView({
       pathname,
       url,
     });
-  }, [pathname, searchParams]);
+  }, [pathname]);
 
   return null;
 }
