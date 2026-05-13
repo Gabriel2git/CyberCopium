@@ -1,11 +1,8 @@
 {
-  "dashscopeBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-  "generationModel": "qwen-flash",
+  "providerBaseUrl": "https://api.deepseek.com/v1",
+  "generationModel": "deepseek-v4-flash",
   "promptVersion": "v2",
   "availableModels": [
-    "qwen-flash",
-    "qwen-plus",
-    "qwen3.5-plus",
-    "qwen3.5-flash"
+    "deepseek-v4-flash"
   ]
 }

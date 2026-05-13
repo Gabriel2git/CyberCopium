@@ -16,15 +16,15 @@ import {
   GenerationResult,
 } from '@/types';
 import {
-  DASHSCOPE_BASE_URL,
+  PROVIDER_BASE_URL,
   GENERATION_MODEL,
   PROMPT_VERSION,
 } from '@/config/model';
 
 // 配置阿里云百炼客户端
 const client = new OpenAI({
-  apiKey: process.env.DASHSCOPE_API_KEY,
-  baseURL: DASHSCOPE_BASE_URL,
+  apiKey: process.env.DEEPSEEK_API_KEY || process.env.DASHSCOPE_API_KEY,
+  baseURL: PROVIDER_BASE_URL,
   timeout: 15000, // 15 秒超时（两次调用）
 });
 
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!process.env.DASHSCOPE_API_KEY) {
+    if (!(process.env.DEEPSEEK_API_KEY || process.env.DASHSCOPE_API_KEY)) {
       return createResponse(
         {
           ok: false,
