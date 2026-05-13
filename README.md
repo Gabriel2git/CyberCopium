@@ -19,10 +19,10 @@
 cp .env.local.example .env.local
 ```
 
-2. 在 `.env.local` 中配置阿里云百炼 API Key：
+2. 在 `.env.local` 中配置 DeepSeek API Key：
 ```env
-# 阿里云百炼 API Key（推荐）
-DASHSCOPE_API_KEY=sk-xxx
+# DeepSeek API Key（推荐）
+DEEPSEEK_API_KEY=sk-xxx
 
 # OpenAI API Key（备用）
 # OPENAI_API_KEY=sk-your-api-key-here
