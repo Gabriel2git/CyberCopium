@@ -23,6 +23,12 @@ import {
 
 const getApiKey = () => process.env.DEEPSEEK_API_KEY || process.env.DASHSCOPE_API_KEY;
 
+const getApiKeySource = () => {
+  if (process.env.DEEPSEEK_API_KEY) return 'DEEPSEEK_API_KEY';
+  if (process.env.DASHSCOPE_API_KEY) return 'DASHSCOPE_API_KEY';
+  return 'missing';
+};
+
 const getClient = () => {
   const apiKey = getApiKey();
 
@@ -73,6 +79,96 @@ const createResponse = (payload: GenerateApiResponse, status = 200) => {
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === 'object' && value !== null;
+};
+
+const getSafeErrorDetails = (error: unknown) => {
+  const record = isObjectRecord(error) ? error : {};
+  const rawMessage = error instanceof Error ? error.message : String(error);
+  const message = rawMessage
+    .replace(/sk-[A-Za-z0-9_-]{8,}/g, '[REDACTED]')
+    .slice(0, 400);
+
+  return {
+    name: error instanceof Error ? error.name : 'UnknownError',
+    code: typeof record.code === 'string' ? record.code : undefined,
+    status: typeof record.status === 'number' ? record.status : undefined,
+    message,
+  };
+};
+
+const logGenerationError = (stage: string, error: unknown) => {
+  console.error('[api/generate] provider request failed', {
+    stage,
+    model: GENERATION_MODEL,
+    apiKeySource: getApiKeySource(),
+    ...getSafeErrorDetails(error),
+  });
+};
+
+const removeTrailingJsonCommas = (value: string) => {
+  let result = '';
+  let inString = false;
+  let escaped = false;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+
+    if (inString) {
+      result += character;
+      if (escaped) {
+        escaped = false;
+      } else if (character === '\\') {
+        escaped = true;
+      } else if (character === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (character === '"') {
+      inString = true;
+      result += character;
+      continue;
+    }
+
+    if (character === ',') {
+      let lookahead = index + 1;
+      while (/\s/.test(value[lookahead] ?? '')) lookahead += 1;
+      if (value[lookahead] === '}' || value[lookahead] === ']') continue;
+    }
+
+    result += character;
+  }
+
+  return result;
+};
+
+const parseModelJson = (content: string, stage: string) => {
+  try {
+    return JSON.parse(content);
+  } catch (originalError) {
+    const trimmed = content.trim();
+    const withoutFence = trimmed
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/, '');
+    const firstBrace = withoutFence.indexOf('{');
+    const lastBrace = withoutFence.lastIndexOf('}');
+    const objectCandidate = firstBrace >= 0 && lastBrace > firstBrace
+      ? withoutFence.slice(firstBrace, lastBrace + 1)
+      : withoutFence;
+    const repaired = removeTrailingJsonCommas(objectCandidate);
+
+    if (repaired !== content) {
+      try {
+        return JSON.parse(repaired);
+      } catch {
+        // Keep the original parser error; it points to the provider's raw output.
+      }
+    }
+
+    const detail = originalError instanceof Error ? originalError.message : 'invalid JSON';
+    throw new Error(`${stage} 返回无效 JSON: ${detail}`);
+  }
 };
 
 const hasRequiredFields = <T extends readonly string[]>(
@@ -185,14 +281,19 @@ export async function POST(request: NextRequest) {
           { role: 'user', content: generateAnalyzerUserPrompt(normalizedInput) },
         ],
         temperature: 0.3,
-        max_tokens: 300,
+        max_tokens: 1200,
         response_format: { type: 'json_object' },
       });
 
-      const analysisContent = analysisCompletion.choices[0]?.message?.content;
+      const analysisChoice = analysisCompletion.choices[0];
+      const analysisContent = analysisChoice?.message?.content;
 
       if (!analysisContent) {
-        throw new Error('Analyzer 未返回内容');
+        throw new Error(`Analyzer 未返回内容 (${JSON.stringify({
+          finishReason: analysisChoice?.finish_reason,
+          refusal: analysisChoice?.message?.refusal,
+          hasToolCalls: Boolean(analysisChoice?.message?.tool_calls?.length),
+        })})`);
       }
 
       const parsedAnalysis = JSON.parse(analysisContent);
@@ -227,10 +328,7 @@ export async function POST(request: NextRequest) {
         model_name: GENERATION_MODEL,
         fallback_used: true,
       });
-
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Analyzer 失败:', analysisError);
-      }
+      logGenerationError('analyzer', analysisError);
     }
 
     // ========== 第二层：Presentation Layer (Composer) ==========
@@ -244,18 +342,23 @@ export async function POST(request: NextRequest) {
           },
           { role: 'user', content: generateComposerUserPrompt(normalizedInput, analysis) },
         ],
-        temperature: 0.9,
-        max_tokens: 500,
+        temperature: 0.6,
+        max_tokens: 1200,
         response_format: { type: 'json_object' },
       });
 
-      const composerContent = composerCompletion.choices[0]?.message?.content;
+      const composerChoice = composerCompletion.choices[0];
+      const composerContent = composerChoice?.message?.content;
 
       if (!composerContent) {
-        throw new Error('Composer 未返回内容');
+        throw new Error(`Composer 未返回内容 (${JSON.stringify({
+          finishReason: composerChoice?.finish_reason,
+          refusal: composerChoice?.message?.refusal,
+          hasToolCalls: Boolean(composerChoice?.message?.tool_calls?.length),
+        })})`);
       }
 
-      const parsedResult = JSON.parse(composerContent);
+      const parsedResult = parseModelJson(composerContent, 'Composer');
 
       if (!hasRequiredFields(parsedResult, RESULT_REQUIRED_FIELDS)) {
         throw new Error('Composer 返回字段不完整');
@@ -302,9 +405,7 @@ export async function POST(request: NextRequest) {
         fallback_used: true,
       });
 
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Composer 失败:', composerError);
-      }
+      logGenerationError('composer', composerError);
 
       return createResponse(
         {
@@ -331,9 +432,7 @@ export async function POST(request: NextRequest) {
       fallback_used: true,
     });
 
-    if (process.env.NODE_ENV === 'development') {
-      console.error('生成失败:', error);
-    }
+    logGenerationError('request', error);
 
     return createResponse(
       {
