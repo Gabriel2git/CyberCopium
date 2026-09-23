@@ -1,8 +1,8 @@
 {
   "providerBaseUrl": "https://api.deepseek.com/v1",
-  "generationModel": "deepseek-v4-flash",
+  "generationModel": "deepseek-flash",
   "promptVersion": "v2",
   "availableModels": [
-    "deepseek-v4-flash"
+    "deepseek-flash"
   ]
 }

@@ -24,16 +24,13 @@ DEEPSEEK_API_KEY=sk-你的真实 APIKey
 
 ```json
 {
-  "generationModel": "deepseek-v4-flash",
+  "generationModel": "deepseek-flash",
   "promptVersion": "v2"
 }
 ```
 
 可选模型：
-- `deepseek-v4-flash` - 推荐：低延迟、稳定性高
-- `deepseek-v4-flash` - 快速响应，成本最低
-- `deepseek-v4-flash` - 性能和成本平衡（推荐）
-- `deepseek-v4-flash` - 最强能力，成本最高
+- `deepseek-flash` - 推荐：低延迟、稳定性高
 
 ### 4. 测试配置
 
@@ -80,9 +77,7 @@ npm run dev
 
 DeepSeek API 按 token 计费（请以官方最新价格为准）：
 
-- **deepseek-v4-flash**: 约 ¥0.002/1K tokens
-- **deepseek-v4-flash**: 约 ¥0.005/1K tokens  
-- **deepseek-v4-flash**: 约 ¥0.02/1K tokens
+- **deepseek-flash**: 请以 DeepSeek 官方最新价格为准
 
 每次生成约消耗 500-800 tokens，单次成本约 ¥0.003-¥0.016。
 
@@ -112,7 +107,7 @@ const client = new OpenAI({
 主要变化：
 1. 环境变量名从 `OPENAI_API_KEY` 改为 `DEEPSEEK_API_KEY`
 2. 添加了 `baseURL` 指向 DeepSeek 的兼容接口
-3. 模型名从 `gpt-3.5-turbo` 改为 `deepseek-v4-flash`
+3. 模型名从 `gpt-3.5-turbo` 改为 `deepseek-flash`
 
 ## 安全提示
 
